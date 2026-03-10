@@ -1,0 +1,84 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for Migrate Suite.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function migrate_suite_schema(): array {
+  $schema['migrate_suite_run_log'] = [
+    'description' => 'Stores migration run history.',
+    'fields' => [
+      'id' => [
+        'description' => 'Primary key.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'migration_id' => [
+        'description' => 'The migration plugin ID.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'status' => [
+        'description' => 'Run status: idle, running, completed, failed.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'idle',
+      ],
+      'started' => [
+        'description' => 'Timestamp when the run started.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'finished' => [
+        'description' => 'Timestamp when the run finished.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'items_processed' => [
+        'description' => 'Number of items processed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'items_created' => [
+        'description' => 'Number of items created.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'items_updated' => [
+        'description' => 'Number of items updated.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'items_failed' => [
+        'description' => 'Number of items that failed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'migration_id' => ['migration_id'],
+      'status' => ['status'],
+    ],
+  ];
+
+  return $schema;
+}

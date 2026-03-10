@@ -1,0 +1,14 @@
+services:
+  migrate_suite.map_query:
+    class: Drupal\migrate_suite\Service\MigrateMapQuery
+    arguments: ['@database', '@plugin.manager.migration']
+
+  migrate_suite.message_query:
+    class: Drupal\migrate_suite\Service\MigrateMessageQuery
+    arguments: ['@database']
+
+  migrate_suite.run_logger:
+    class: Drupal\migrate_suite\EventSubscriber\MigrateRunLogger
+    arguments: ['@database', '@datetime.time']
+    tags:
+      - { name: event_subscriber }
