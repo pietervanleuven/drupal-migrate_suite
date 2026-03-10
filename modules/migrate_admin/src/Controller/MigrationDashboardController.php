@@ -518,19 +518,4 @@ class MigrationDashboardController extends ControllerBase {
     ];
   }
 
-  /**
-   * Placeholder for the migration detail page.
-   *
-   * @param string $migration_id
-   *   The migration plugin ID.
-   *
-   * @return array
-   *   A render array.
-   */
-  public function detail(string $migration_id): array {
-    return [
-      '#markup' => '<p>' . $this->t('Migration detail page for @id. This will be implemented in a future update.', ['@id' => $migration_id]) . '</p>',
-    ];
-  }
-
 }
