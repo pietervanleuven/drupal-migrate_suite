@@ -1,0 +1,6 @@
+migrate_source_field.source_links:
+  title: 'Source Link Patterns'
+  description: 'Configure source URL patterns for migrations.'
+  route_name: migrate_source_field.source_links
+  parent: system.admin_structure
+  weight: 12

@@ -1,0 +1,7 @@
+migrate_source_field.source_links:
+  path: '/admin/structure/migrate-suite/settings/source-links'
+  defaults:
+    _form: '\Drupal\migrate_source_field\Form\SourceLinkSettingsForm'
+    _title: 'Source Link Patterns'
+  requirements:
+    _permission: 'administer site configuration'

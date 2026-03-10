@@ -154,6 +154,15 @@ function _migrate_source_field_build_provenance_display(array $provenance): arra
     $rows[] = [t('Import date'), $importDate];
   }
 
+  // Add source link if URL pattern is configured.
+  $sourceLink = _migrate_source_field_build_source_link(
+    $provenance['migration_id'],
+    $provenance['source_ids'],
+  );
+  if ($sourceLink !== NULL) {
+    $rows[] = [t('Original source'), ['data' => ['#markup' => $sourceLink]]];
+  }
+
   return [
     '#type' => 'details',
     '#title' => t('Migration provenance'),
@@ -163,4 +172,32 @@ function _migrate_source_field_build_provenance_display(array $provenance): arra
       '#rows' => $rows,
     ],
   ];
+}
+
+/**
+ * Builds a source link from the configured URL pattern for a migration.
+ *
+ * @param string $migrationId
+ *   The migration ID.
+ * @param array $sourceIds
+ *   The source ID values.
+ *
+ * @return string|null
+ *   An HTML link string, or NULL if no URL pattern is configured.
+ */
+function _migrate_source_field_build_source_link(string $migrationId, array $sourceIds): ?string {
+  $config = \Drupal::config('migrate_suite.settings');
+  $sourceLinks = $config->get('source_links') ?? [];
+
+  if (empty($sourceLinks[$migrationId])) {
+    return NULL;
+  }
+
+  $pattern = $sourceLinks[$migrationId];
+
+  // Replace [source_id] token. For composite keys, join with /.
+  $sourceIdValue = implode('/', $sourceIds);
+  $url = str_replace('[source_id]', $sourceIdValue, $pattern);
+
+  return '<a href="' . htmlspecialchars($url, ENT_QUOTES) . '" target="_blank" rel="noopener">' . htmlspecialchars($url, ENT_QUOTES) . '</a>';
 }
