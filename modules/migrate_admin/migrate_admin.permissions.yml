@@ -1,0 +1,3 @@
+view migrate suite dashboard:
+  title: 'View Migrate Suite dashboard'
+  description: 'Access the migration dashboard and view migration status.'

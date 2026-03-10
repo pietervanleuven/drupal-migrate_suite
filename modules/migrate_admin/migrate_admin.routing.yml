@@ -1,0 +1,15 @@
+migrate_admin.dashboard:
+  path: '/admin/structure/migrate-suite'
+  defaults:
+    _controller: '\Drupal\migrate_admin\Controller\MigrationDashboardController::dashboard'
+    _title: 'Migration Dashboard'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
+migrate_admin.migration_detail:
+  path: '/admin/structure/migrate-suite/{migration_id}'
+  defaults:
+    _controller: '\Drupal\migrate_admin\Controller\MigrationDashboardController::detail'
+    _title: 'Migration Detail'
+  requirements:
+    _permission: 'view migrate suite dashboard'

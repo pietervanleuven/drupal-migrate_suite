@@ -1,0 +1,7 @@
+name: Migrate Admin
+type: module
+description: 'Migration dashboard with status overview and imported items list.'
+package: Migration
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite

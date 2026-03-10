@@ -1,0 +1,6 @@
+migrate_admin.dashboard:
+  title: 'Migration Dashboard'
+  description: 'View and monitor migration status.'
+  route_name: migrate_admin.dashboard
+  parent: system.admin_structure
+  weight: 50
