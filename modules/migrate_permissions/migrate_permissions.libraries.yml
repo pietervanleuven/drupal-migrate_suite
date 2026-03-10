@@ -1,0 +1,5 @@
+matrix:
+  version: VERSION
+  css:
+    theme:
+      css/migrate_permissions.css: {}

@@ -1,0 +1,7 @@
+migrate_permissions.permission_matrix:
+  path: '/admin/structure/migrate-suite/permissions'
+  defaults:
+    _form: '\Drupal\migrate_permissions\Form\PermissionMatrixForm'
+    _title: 'Migration Permissions'
+  requirements:
+    _permission: 'administer permissions'

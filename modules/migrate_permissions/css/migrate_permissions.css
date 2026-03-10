@@ -1,0 +1,45 @@
+.migrate-permission-matrix {
+  font-size: 0.9em;
+}
+
+.migrate-permission-matrix th.migrate-matrix-role-header {
+  text-align: center;
+  border-bottom: 2px solid #ccc;
+}
+
+.migrate-matrix-subheader td {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85em;
+  color: #555;
+  padding: 4px 8px;
+}
+
+.migrate-matrix-group-header {
+  background-color: #f0f0f0;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.migrate-matrix-cell {
+  text-align: center;
+}
+
+.migrate-matrix-cell .form-checkbox {
+  margin: 0 auto;
+}
+
+.migrate-matrix-migration-label {
+  padding-left: 1.5em;
+  white-space: nowrap;
+}
+
+.migrate-matrix-filter {
+  margin-bottom: 1.5em;
+}
+
+.migrate-matrix-filter .migrate-dashboard-filter-form {
+  display: flex;
+  gap: 1em;
+  align-items: flex-end;
+}

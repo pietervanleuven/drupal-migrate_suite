@@ -1,0 +1,6 @@
+migrate_permissions.permission_matrix:
+  title: 'Migration Permissions'
+  description: 'Configure per-migration permissions for roles.'
+  route_name: migrate_permissions.permission_matrix
+  parent: system.admin_structure
+  weight: 51
