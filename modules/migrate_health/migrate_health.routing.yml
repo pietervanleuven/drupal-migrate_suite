@@ -1,0 +1,7 @@
+migrate_health.settings:
+  path: '/admin/structure/migrate-suite/settings'
+  defaults:
+    _form: '\Drupal\migrate_health\Form\HealthSettingsForm'
+    _title: 'Migration Health Settings'
+  requirements:
+    _permission: 'administer site configuration'

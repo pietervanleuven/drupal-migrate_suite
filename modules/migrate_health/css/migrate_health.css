@@ -1,0 +1,38 @@
+.migrate-health-summary {
+  display: flex;
+  gap: 1.5em;
+  margin-bottom: 1.5em;
+  padding: 0.75em 1em;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.migrate-health-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 600;
+}
+
+.health-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #fff;
+}
+
+.health-badge.health--healthy {
+  background-color: #28a745;
+}
+
+.health-badge.health--stale {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.health-badge.health--failing {
+  background-color: #dc3545;
+}

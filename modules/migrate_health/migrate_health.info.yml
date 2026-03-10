@@ -1,0 +1,7 @@
+name: Migrate Health
+type: module
+description: 'Health badges, stale detection, and failed item tracking for migrations.'
+package: Migrate Suite
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite

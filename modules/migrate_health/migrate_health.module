@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * @file
+ * Provides health monitoring and badges for migrations.
+ */
+
+declare(strict_types=1);

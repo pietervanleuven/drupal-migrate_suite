@@ -1,0 +1,6 @@
+migrate_health.settings:
+  title: 'Migration Health Settings'
+  description: 'Configure health thresholds for migration monitoring.'
+  route_name: migrate_health.settings
+  parent: system.admin_structure
+  weight: 52

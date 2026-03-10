@@ -11,6 +11,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\migrate_health\Service\MigrationHealthAnalyzer;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,22 +37,28 @@ class MigrationDashboardController extends ControllerBase {
     protected readonly DateFormatterInterface $dateFormatter,
     protected readonly ModuleHandlerInterface $moduleHandler,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
+    protected readonly ?MigrationHealthAnalyzer $healthAnalyzer,
   ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
-    $migrateAccessCheck = $container->get('module_handler')->moduleExists('migrate_permissions')
+    $moduleHandler = $container->get('module_handler');
+    $migrateAccessCheck = $moduleHandler->moduleExists('migrate_permissions')
       ? $container->get('migrate_permissions.access_check')
+      : NULL;
+    $healthAnalyzer = $moduleHandler->moduleExists('migrate_health')
+      ? $container->get('migrate_health.analyzer')
       : NULL;
 
     return new static(
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('date.formatter'),
-      $container->get('module_handler'),
+      $moduleHandler,
       $migrateAccessCheck,
+      $healthAnalyzer,
     );
   }
 
@@ -149,14 +156,38 @@ class MigrationDashboardController extends ControllerBase {
 
     ksort($allGroups);
 
+    // Compute health statuses if migrate_health is enabled.
+    $healthModuleEnabled = $this->healthAnalyzer !== NULL;
+    if ($healthModuleEnabled) {
+      $allMigrationIds = [];
+      foreach ($groupedMigrations as $groupMigrations) {
+        $allMigrationIds = array_merge($allMigrationIds, array_keys($groupMigrations));
+      }
+      $healthStatuses = $this->healthAnalyzer->getHealthForMultiple($allMigrationIds);
+
+      // Add health data to each migration entry.
+      foreach ($groupedMigrations as $group => &$groupMigrations) {
+        foreach ($groupMigrations as $migrationId => &$data) {
+          $data['health'] = $healthStatuses[$migrationId] ?? MigrationHealthAnalyzer::HEALTHY;
+        }
+      }
+      unset($groupMigrations, $data);
+    }
+
     $build = [];
+
+    // Aggregate health summary at top of dashboard.
+    if ($healthModuleEnabled && !empty($groupedMigrations)) {
+      $summary = $this->healthAnalyzer->getAggregateSummary($healthStatuses);
+      $build['health_summary'] = $this->buildHealthSummary($summary);
+    }
 
     // Filter form.
     $build['filters'] = $this->buildFilterForm($search, $statusFilter, $groupFilter, $allGroups);
 
     // Build grouped tables.
     foreach ($groupedMigrations as $group => $groupMigrations) {
-      $build['group_' . $group] = $this->buildGroupTable($group, $groupMigrations);
+      $build['group_' . $group] = $this->buildGroupTable($group, $groupMigrations, $healthModuleEnabled);
     }
 
     if (empty($groupedMigrations)) {
@@ -172,8 +203,12 @@ class MigrationDashboardController extends ControllerBase {
       }
     }
 
+    $libraries = ['migrate_admin/dashboard'];
+    if ($healthModuleEnabled) {
+      $libraries[] = 'migrate_health/health';
+    }
     $build['#attached'] = [
-      'library' => ['migrate_admin/dashboard'],
+      'library' => $libraries,
     ];
     $build['#cache'] = [
       'contexts' => ['url.query_args'],
@@ -477,7 +512,7 @@ class MigrationDashboardController extends ControllerBase {
    * @return array
    *   A render array for the group.
    */
-  protected function buildGroupTable(string $group, array $migrations): array {
+  protected function buildGroupTable(string $group, array $migrations, bool $showHealth = FALSE): array {
     $rows = [];
     $showActions = FALSE;
     foreach ($migrations as $migrationId => $data) {
@@ -503,12 +538,17 @@ class MigrationDashboardController extends ControllerBase {
         Link::fromTextAndUrl($data['label'], Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migrationId]))->toString(),
         $data['group'],
         $statusBadge,
-        $data['source_count'],
-        $data['imported_count'],
-        $data['failed_count'],
-        $lastRun,
-        ['data' => ['#markup' => $actionsMarkup]],
       ];
+
+      if ($showHealth) {
+        $row[] = $this->buildHealthBadge($data['health'] ?? MigrationHealthAnalyzer::HEALTHY);
+      }
+
+      $row[] = $data['source_count'];
+      $row[] = $data['imported_count'];
+      $row[] = $data['failed_count'];
+      $row[] = $lastRun;
+      $row[] = ['data' => ['#markup' => $actionsMarkup]];
       $rows[] = $row;
     }
 
@@ -516,12 +556,17 @@ class MigrationDashboardController extends ControllerBase {
       $this->t('Migration'),
       $this->t('Group'),
       $this->t('Status'),
-      $this->t('Source count'),
-      $this->t('Imported'),
-      $this->t('Failed'),
-      $this->t('Last run'),
-      $this->t('Actions'),
     ];
+
+    if ($showHealth) {
+      $header[] = $this->t('Health');
+    }
+
+    $header[] = $this->t('Source count');
+    $header[] = $this->t('Imported');
+    $header[] = $this->t('Failed');
+    $header[] = $this->t('Last run');
+    $header[] = $this->t('Actions');
 
     return [
       '#type' => 'details',
@@ -571,6 +616,73 @@ class MigrationDashboardController extends ControllerBase {
     return [
       'data' => [
         '#markup' => '<span class="badge ' . $colorClass . '">' . $label . '</span>',
+      ],
+    ];
+  }
+
+  /**
+   * Builds a health badge.
+   *
+   * @param string $health
+   *   The health status: healthy, stale, or failing.
+   *
+   * @return array
+   *   A render array for the health badge.
+   */
+  protected function buildHealthBadge(string $health): array {
+    $labels = [
+      MigrationHealthAnalyzer::HEALTHY => $this->t('Healthy'),
+      MigrationHealthAnalyzer::STALE => $this->t('Stale'),
+      MigrationHealthAnalyzer::FAILING => $this->t('Failing'),
+    ];
+
+    $classes = [
+      MigrationHealthAnalyzer::HEALTHY => 'health--healthy',
+      MigrationHealthAnalyzer::STALE => 'health--stale',
+      MigrationHealthAnalyzer::FAILING => 'health--failing',
+    ];
+
+    $label = $labels[$health] ?? $health;
+    $class = $classes[$health] ?? '';
+
+    return [
+      'data' => [
+        '#markup' => '<span class="health-badge ' . $class . '">' . $label . '</span>',
+      ],
+    ];
+  }
+
+  /**
+   * Builds the aggregate health summary bar.
+   *
+   * @param array $summary
+   *   Array with keys: healthy, stale, failing (counts).
+   *
+   * @return array
+   *   A render array for the health summary.
+   */
+  protected function buildHealthSummary(array $summary): array {
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => ['class' => ['migrate-health-summary']],
+      'healthy' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['migrate-health-summary-item']],
+        '#value' => '<span class="health-badge health--healthy">' . $summary[MigrationHealthAnalyzer::HEALTHY] . '</span> ' . $this->t('healthy'),
+      ],
+      'stale' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['migrate-health-summary-item']],
+        '#value' => '<span class="health-badge health--stale">' . $summary[MigrationHealthAnalyzer::STALE] . '</span> ' . $this->t('stale'),
+      ],
+      'failing' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['migrate-health-summary-item']],
+        '#value' => '<span class="health-badge health--failing">' . $summary[MigrationHealthAnalyzer::FAILING] . '</span> ' . $this->t('failing'),
       ],
     ];
   }
