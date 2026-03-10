@@ -1,0 +1,6 @@
+<?php
+
+/**
+ * @file
+ * Provides per-migration permissions for Migrate Suite.
+ */

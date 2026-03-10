@@ -1,0 +1,7 @@
+name: Migrate Permissions
+type: module
+description: 'Provides granular per-migration permissions integrated with Drupal''s permission system.'
+package: Migrate Suite
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite

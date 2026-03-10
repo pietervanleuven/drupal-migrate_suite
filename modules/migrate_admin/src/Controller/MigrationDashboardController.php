@@ -7,9 +7,11 @@ namespace Drupal\migrate_admin\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\migrate_permissions\MigrateAccessCheck;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -32,16 +34,24 @@ class MigrationDashboardController extends ControllerBase {
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly DateFormatterInterface $dateFormatter,
+    protected readonly ModuleHandlerInterface $moduleHandler,
+    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
   ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
+    $migrateAccessCheck = $container->get('module_handler')->moduleExists('migrate_permissions')
+      ? $container->get('migrate_permissions.access_check')
+      : NULL;
+
     return new static(
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('date.formatter'),
+      $container->get('module_handler'),
+      $migrateAccessCheck,
     );
   }
 
@@ -71,7 +81,15 @@ class MigrationDashboardController extends ControllerBase {
     $allGroups = [];
     $groupedMigrations = [];
 
+    $account = $this->currentUser();
+    $permissionsModuleEnabled = $this->migrateAccessCheck !== NULL;
+
     foreach ($migrations as $migrationId => $migration) {
+      // Apply per-migration view permission filter.
+      if ($permissionsModuleEnabled && !$this->migrateAccessCheck->canViewMigration($account, $migrationId)) {
+        continue;
+      }
+
       $label = $migration->label() ?: $migrationId;
       $definition = $migration->getPluginDefinition();
       $group = $definition['migration_group'] ?? 'default';
@@ -128,9 +146,16 @@ class MigrationDashboardController extends ControllerBase {
     }
 
     if (empty($groupedMigrations)) {
-      $build['empty'] = [
-        '#markup' => '<p>' . $this->t('No migrations match the current filters.') . '</p>',
-      ];
+      if ($permissionsModuleEnabled && $search === '' && $statusFilter === '' && $groupFilter === '') {
+        $build['empty'] = [
+          '#markup' => '<p>' . $this->t('You do not have permission to view any migrations. Contact your site administrator to grant you per-migration view permissions.') . '</p>',
+        ];
+      }
+      else {
+        $build['empty'] = [
+          '#markup' => '<p>' . $this->t('No migrations match the current filters.') . '</p>',
+        ];
+      }
     }
 
     $build['#attached'] = [

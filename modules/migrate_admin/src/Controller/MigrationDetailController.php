@@ -9,8 +9,10 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\migrate_permissions\MigrateAccessCheck;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -37,16 +39,22 @@ class MigrationDetailController extends ControllerBase {
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly DateFormatterInterface $dateFormatter,
+    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
   ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
+    $migrateAccessCheck = $container->get('module_handler')->moduleExists('migrate_permissions')
+      ? $container->get('migrate_permissions.access_check')
+      : NULL;
+
     return new static(
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('date.formatter'),
+      $migrateAccessCheck,
     );
   }
 
@@ -203,6 +211,12 @@ class MigrationDetailController extends ControllerBase {
     if (empty($migrations[$migration_id])) {
       throw new NotFoundHttpException();
     }
+
+    // Check per-migration view permission if migrate_permissions is enabled.
+    if ($this->migrateAccessCheck !== NULL && !$this->migrateAccessCheck->canViewMigration($this->currentUser(), $migration_id)) {
+      throw new AccessDeniedHttpException();
+    }
+
     return $migrations[$migration_id];
   }
 
