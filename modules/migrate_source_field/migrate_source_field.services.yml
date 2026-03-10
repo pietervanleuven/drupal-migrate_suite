@@ -1,0 +1,4 @@
+services:
+  migrate_source_field.provenance_lookup:
+    class: Drupal\migrate_source_field\Service\ProvenanceLookup
+    arguments: ['@database', '@plugin.manager.migration']

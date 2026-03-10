@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * @file
+ * Provides migration provenance pseudo-field on migrated entities.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
+use Drupal\node\NodeTypeInterface;
+
+/**
+ * Implements hook_entity_extra_field_info().
+ */
+function migrate_source_field_entity_extra_field_info(): array {
+  $extra = [];
+
+  $nodeTypes = \Drupal::entityTypeManager()
+    ->getStorage('node_type')
+    ->loadMultiple();
+
+  foreach ($nodeTypes as $nodeType) {
+    assert($nodeType instanceof NodeTypeInterface);
+    $extra['node'][$nodeType->id()]['display']['migrate_provenance'] = [
+      'label' => t('Migration provenance'),
+      'description' => t('Shows migration source information for imported content.'),
+      'weight' => 100,
+      'visible' => FALSE,
+    ];
+    $extra['node'][$nodeType->id()]['form']['migrate_provenance'] = [
+      'label' => t('Migration provenance'),
+      'description' => t('Shows migration source information for imported content.'),
+      'weight' => 100,
+      'visible' => FALSE,
+    ];
+  }
+
+  return $extra;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_view() for node entities.
+ */
+function migrate_source_field_node_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, string $view_mode): void {
+  if (!$display->getComponent('migrate_provenance')) {
+    return;
+  }
+
+  $provenance = _migrate_source_field_get_provenance($entity);
+  if ($provenance === NULL) {
+    return;
+  }
+
+  $build['migrate_provenance'] = _migrate_source_field_build_provenance_display($provenance);
+  $build['migrate_provenance']['#cache'] = [
+    'tags' => ['migrate_source_field:provenance'],
+  ];
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for node forms.
+ */
+function migrate_source_field_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
+  /** @var \Drupal\node\NodeInterface $node */
+  $node = $form_state->getFormObject()->getEntity();
+
+  if ($node->isNew()) {
+    return;
+  }
+
+  // Check if the pseudo-field is enabled on the form display.
+  $formDisplay = \Drupal::entityTypeManager()
+    ->getStorage('entity_form_display')
+    ->load('node.' . $node->bundle() . '.default');
+
+  if (!$formDisplay || !$formDisplay->getComponent('migrate_provenance')) {
+    return;
+  }
+
+  $provenance = _migrate_source_field_get_provenance($node);
+  if ($provenance === NULL) {
+    return;
+  }
+
+  $form['migrate_provenance'] = _migrate_source_field_build_provenance_display($provenance);
+  $form['migrate_provenance']['#weight'] = 100;
+}
+
+/**
+ * Gets provenance data for an entity.
+ *
+ * @param \Drupal\Core\Entity\EntityInterface $entity
+ *   The entity.
+ *
+ * @return array|null
+ *   Provenance data or NULL if not found.
+ */
+function _migrate_source_field_get_provenance(EntityInterface $entity): ?array {
+  if (!$entity instanceof NodeInterface || $entity->isNew()) {
+    return NULL;
+  }
+
+  /** @var \Drupal\migrate_source_field\Service\ProvenanceLookup $provenanceLookup */
+  $provenanceLookup = \Drupal::service('migrate_source_field.provenance_lookup');
+  return $provenanceLookup->lookupProvenance(
+    $entity->getEntityTypeId(),
+    $entity->id(),
+  );
+}
+
+/**
+ * Builds the provenance display render array.
+ *
+ * @param array $provenance
+ *   The provenance data from ProvenanceLookup.
+ *
+ * @return array
+ *   A render array.
+ */
+function _migrate_source_field_build_provenance_display(array $provenance): array {
+  $migrationLabel = $provenance['migration_label'];
+  $migrationId = $provenance['migration_id'];
+
+  // Link to detail page if user has permission.
+  $currentUser = \Drupal::currentUser();
+  $hasDetailAccess = $currentUser->hasPermission('view migrate suite dashboard');
+  if ($hasDetailAccess) {
+    try {
+      $url = Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migrationId]);
+      $migrationLabel = '<a href="' . $url->toString() . '">' . htmlspecialchars((string) $migrationLabel, ENT_QUOTES) . '</a>';
+    }
+    catch (\Exception $e) {
+      // Route may not exist if migrate_admin is not installed.
+      $migrationLabel = htmlspecialchars((string) $migrationLabel, ENT_QUOTES);
+    }
+  }
+  else {
+    $migrationLabel = htmlspecialchars((string) $migrationLabel, ENT_QUOTES);
+  }
+
+  $rows = [
+    [t('Migration'), ['data' => ['#markup' => $migrationLabel]]],
+    [t('Source ID(s)'), implode(' / ', $provenance['source_ids'])],
+  ];
+
+  if ($provenance['last_imported'] !== NULL) {
+    $importDate = \Drupal::service('date.formatter')
+      ->format($provenance['last_imported'], 'short');
+    $rows[] = [t('Import date'), $importDate];
+  }
+
+  return [
+    '#type' => 'details',
+    '#title' => t('Migration provenance'),
+    '#open' => TRUE,
+    'table' => [
+      '#type' => 'table',
+      '#rows' => $rows,
+    ],
+  ];
+}

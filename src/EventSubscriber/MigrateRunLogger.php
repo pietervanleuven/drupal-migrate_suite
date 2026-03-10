@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\migrate_suite\EventSubscriber;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\migrate\Event\MigrateEvents;
 use Drupal\migrate\Event\MigrateImportEvent;
@@ -43,6 +44,7 @@ class MigrateRunLogger implements EventSubscriberInterface {
   public function __construct(
     protected readonly Connection $database,
     protected readonly TimeInterface $time,
+    protected readonly CacheTagsInvalidatorInterface $cacheTagsInvalidator,
   ) {}
 
   /**
@@ -117,6 +119,9 @@ class MigrateRunLogger implements EventSubscriberInterface {
       ])
       ->condition('id', $this->activeRuns[$migrationId])
       ->execute();
+
+    // Invalidate provenance cache tags so pseudo-fields update.
+    $this->cacheTagsInvalidator->invalidateTags(['migrate_source_field:provenance']);
 
     unset($this->activeRuns[$migrationId], $this->counters[$migrationId]);
   }

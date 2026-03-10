@@ -1,0 +1,7 @@
+name: Migrate Source Field
+type: module
+description: 'Content provenance pseudo-field and original source link on migrated entities.'
+package: Migrate Suite
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite
