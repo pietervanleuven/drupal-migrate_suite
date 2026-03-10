@@ -81,3 +81,11 @@
   font-size: 0.9em;
   color: #666;
 }
+
+.migrate-tab--has-badge {
+  color: #dc3545;
+}
+
+.migrate-failed-actions {
+  margin-top: 1em;
+}

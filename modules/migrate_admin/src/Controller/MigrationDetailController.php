@@ -104,28 +104,7 @@ class MigrationDetailController extends ControllerBase {
     ];
 
     // Build tabs.
-    $build['tabs'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['migrate-detail-tabs']],
-      'items_tab' => [
-        '#type' => 'html_tag',
-        '#tag' => 'a',
-        '#value' => $this->t('Imported Items'),
-        '#attributes' => [
-          'href' => Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migration_id])->toString(),
-          'class' => ['migrate-tab', 'migrate-tab--active'],
-        ],
-      ],
-      'messages_tab' => [
-        '#type' => 'html_tag',
-        '#tag' => 'a',
-        '#value' => $this->t('Messages'),
-        '#attributes' => [
-          'href' => Url::fromRoute('migrate_admin.migration_messages', ['migration_id' => $migration_id])->toString(),
-          'class' => ['migrate-tab'],
-        ],
-      ],
-    ];
+    $build['tabs'] = $this->buildTabs($migration_id, 'items');
 
     // Build imported items section.
     $build['items'] = $this->buildImportedItemsSection($migration_id, $request);
@@ -158,28 +137,7 @@ class MigrationDetailController extends ControllerBase {
     $build = [];
 
     // Build tabs.
-    $build['tabs'] = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['migrate-detail-tabs']],
-      'items_tab' => [
-        '#type' => 'html_tag',
-        '#tag' => 'a',
-        '#value' => $this->t('Imported Items'),
-        '#attributes' => [
-          'href' => Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migration_id])->toString(),
-          'class' => ['migrate-tab'],
-        ],
-      ],
-      'messages_tab' => [
-        '#type' => 'html_tag',
-        '#tag' => 'a',
-        '#value' => $this->t('Messages'),
-        '#attributes' => [
-          'href' => Url::fromRoute('migrate_admin.migration_messages', ['migration_id' => $migration_id])->toString(),
-          'class' => ['migrate-tab', 'migrate-tab--active'],
-        ],
-      ],
-    ];
+    $build['tabs'] = $this->buildTabs($migration_id, 'messages');
 
     // Build messages section.
     $build['messages'] = $this->buildMessagesSection($migration_id, $request);
@@ -193,6 +151,377 @@ class MigrationDetailController extends ControllerBase {
     ];
 
     return $build;
+  }
+
+  /**
+   * Builds the failed items page.
+   *
+   * @param string $migration_id
+   *   The migration plugin ID.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   *
+   * @return array
+   *   A render array.
+   */
+  public function failedItems(string $migration_id, Request $request): array {
+    $migration = $this->loadMigration($migration_id);
+
+    $build = [];
+
+    // Build tabs.
+    $build['tabs'] = $this->buildTabs($migration_id, 'failed');
+
+    // Build failed items section.
+    $build['failed'] = $this->buildFailedItemsSection($migration_id, $request);
+
+    $build['#attached'] = [
+      'library' => ['migrate_admin/dashboard'],
+    ];
+    $build['#cache'] = [
+      'contexts' => ['url.query_args', 'url.path'],
+      'tags' => ['migration_plugins'],
+    ];
+
+    return $build;
+  }
+
+  /**
+   * Builds the tab navigation for the detail page.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   * @param string $activeTab
+   *   The currently active tab ('items', 'messages', or 'failed').
+   *
+   * @return array
+   *   A render array.
+   */
+  protected function buildTabs(string $migrationId, string $activeTab): array {
+    $failedCount = $this->getFailedItemCount($migrationId);
+    $failedLabel = $failedCount > 0
+      ? $this->t('Failed Items (@count)', ['@count' => $failedCount])
+      : $this->t('Failed Items');
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['migrate-detail-tabs']],
+      'items_tab' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Imported Items'),
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migrationId])->toString(),
+          'class' => array_filter(['migrate-tab', $activeTab === 'items' ? 'migrate-tab--active' : '']),
+        ],
+      ],
+      'messages_tab' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Messages'),
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.migration_messages', ['migration_id' => $migrationId])->toString(),
+          'class' => array_filter(['migrate-tab', $activeTab === 'messages' ? 'migrate-tab--active' : '']),
+        ],
+      ],
+      'failed_tab' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $failedLabel,
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.migration_failed_items', ['migration_id' => $migrationId])->toString(),
+          'class' => array_filter([
+            'migrate-tab',
+            $activeTab === 'failed' ? 'migrate-tab--active' : '',
+            $failedCount > 0 ? 'migrate-tab--has-badge' : '',
+          ]),
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Gets the count of failed items for a migration.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   *
+   * @return int
+   *   The number of failed items.
+   */
+  protected function getFailedItemCount(string $migrationId): int {
+    $table = 'migrate_map_' . $migrationId;
+    if (!$this->database->schema()->tableExists($table)) {
+      return 0;
+    }
+
+    return (int) $this->database->select($table, 'map')
+      ->condition('source_row_status', 2)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+
+  /**
+   * Builds the failed items section with filters and pager.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   *
+   * @return array
+   *   A render array.
+   */
+  protected function buildFailedItemsSection(string $migrationId, Request $request): array {
+    $search = $request->query->get('search', '');
+    $page = max(0, (int) $request->query->get('page', 0));
+
+    $mapTable = 'migrate_map_' . $migrationId;
+    if (!$this->database->schema()->tableExists($mapTable)) {
+      return [
+        '#markup' => '<p>' . $this->t('No map table exists for this migration. The migration may not have been run yet.') . '</p>',
+      ];
+    }
+
+    // Query for failed items (source_row_status = 2).
+    $query = $this->database->select($mapTable, 'map')
+      ->fields('map')
+      ->condition('source_row_status', 2);
+
+    // Detect source ID columns.
+    $sourceIdCols = [];
+    for ($i = 1; $i <= 9; $i++) {
+      if ($this->database->schema()->fieldExists($mapTable, 'sourceid' . $i)) {
+        $sourceIdCols[] = 'sourceid' . $i;
+      }
+    }
+
+    // Apply search filter on source IDs.
+    if ($search !== '') {
+      $or = $query->orConditionGroup();
+      foreach ($sourceIdCols as $col) {
+        $or->condition($col, '%' . $this->database->escapeLike($search) . '%', 'LIKE');
+      }
+      $query->condition($or);
+    }
+
+    // Count total for pager.
+    $countQuery = clone $query;
+    $total = (int) $countQuery->countQuery()->execute()->fetchField();
+
+    // Apply pager.
+    $query->range($page * self::ITEMS_PER_PAGE, self::ITEMS_PER_PAGE);
+    $query->orderBy('last_imported', 'DESC');
+    $rows = $query->execute()->fetchAll();
+
+    // Check if message table exists for error messages.
+    $msgTable = 'migrate_message_' . $migrationId;
+    $hasMsgTable = $this->database->schema()->tableExists($msgTable);
+
+    // Detect message source ID columns.
+    $msgSourceIdCols = [];
+    if ($hasMsgTable) {
+      for ($i = 1; $i <= 9; $i++) {
+        $col = 'src_' . $i;
+        if ($this->database->schema()->fieldExists($msgTable, $col)) {
+          $msgSourceIdCols[] = $col;
+        }
+      }
+    }
+
+    // Build filter form.
+    $build = [];
+    $build['filters'] = $this->buildFailedItemFilterForm($migrationId, $search);
+
+    // Check if user can reset failed items.
+    $canReset = $this->canResetFailedItems($migrationId);
+
+    // Build table rows.
+    $tableRows = [];
+    foreach ($rows as $row) {
+      $sourceIds = [];
+      foreach ($sourceIdCols as $col) {
+        if (isset($row->$col) && $row->$col !== NULL) {
+          $sourceIds[] = $row->$col;
+        }
+      }
+
+      $sourceIdStr = implode(', ', $sourceIds);
+
+      // Look up error message from message table.
+      $errorMessage = '';
+      if ($hasMsgTable && !empty($sourceIds)) {
+        $errorMessage = $this->getErrorMessageForSourceIds($msgTable, $msgSourceIdCols, $sourceIds);
+      }
+
+      $lastImported = !empty($row->last_imported)
+        ? $this->dateFormatter->format((int) $row->last_imported, 'short')
+        : $this->t('Unknown');
+
+      $rowData = [
+        $sourceIdStr,
+        $errorMessage,
+        $lastImported,
+      ];
+
+      $tableRows[] = $rowData;
+    }
+
+    $header = [
+      $this->t('Source ID(s)'),
+      $this->t('Error message'),
+      $this->t('Last attempt'),
+    ];
+
+    $build['table'] = [
+      '#type' => 'table',
+      '#header' => $header,
+      '#rows' => $tableRows,
+      '#empty' => $this->t('No failed items found.'),
+    ];
+
+    // Add reset action link if user has permission and there are failed items.
+    if ($canReset && $total > 0) {
+      $build['actions'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['migrate-failed-actions']],
+        'reset_link' => [
+          '#type' => 'html_tag',
+          '#tag' => 'a',
+          '#value' => $this->t('Reset all failed items for retry'),
+          '#attributes' => [
+            'href' => Url::fromRoute('migrate_admin.migration_reset_failed', ['migration_id' => $migrationId])->toString(),
+            'class' => ['button', 'button--danger'],
+          ],
+        ],
+      ];
+    }
+
+    // Build pager.
+    if ($total > self::ITEMS_PER_PAGE) {
+      $build['pager'] = $this->buildPager($migrationId, $page, $total, $request, 'failed');
+    }
+
+    return $build;
+  }
+
+  /**
+   * Gets the error message for a set of source IDs from the message table.
+   *
+   * @param string $msgTable
+   *   The message table name.
+   * @param array $msgSourceIdCols
+   *   The source ID column names in the message table.
+   * @param array $sourceIds
+   *   The source ID values.
+   *
+   * @return string
+   *   The error message, or empty string if not found.
+   */
+  protected function getErrorMessageForSourceIds(string $msgTable, array $msgSourceIdCols, array $sourceIds): string {
+    try {
+      $query = $this->database->select($msgTable, 'msg')
+        ->fields('msg', ['message'])
+        ->orderBy('msgid', 'DESC')
+        ->range(0, 1);
+
+      foreach ($msgSourceIdCols as $index => $col) {
+        if (isset($sourceIds[$index])) {
+          $query->condition($col, $sourceIds[$index]);
+        }
+      }
+
+      $message = $query->execute()->fetchField();
+      return $message !== FALSE ? (string) $message : '';
+    }
+    catch (\Exception $e) {
+      return '';
+    }
+  }
+
+  /**
+   * Checks if the current user can reset failed items for a migration.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   *
+   * @return bool
+   *   TRUE if the user can reset failed items.
+   */
+  protected function canResetFailedItems(string $migrationId): bool {
+    $account = $this->currentUser();
+
+    // If migrate_permissions is installed, check run permission.
+    if ($this->migrateAccessCheck !== NULL) {
+      return $this->migrateAccessCheck->canRunMigration($account, $migrationId);
+    }
+
+    // Fallback: check admin permissions.
+    return $account->hasPermission('administer migrations') || $account->hasPermission('administer site configuration');
+  }
+
+  /**
+   * Builds the filter form for failed items.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   * @param string $search
+   *   Current search value.
+   *
+   * @return array
+   *   A render array.
+   */
+  protected function buildFailedItemFilterForm(string $migrationId, string $search): array {
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['migrate-dashboard-filters']],
+      'form' => [
+        '#type' => 'html_tag',
+        '#tag' => 'form',
+        '#attributes' => [
+          'method' => 'get',
+          'class' => ['migrate-dashboard-filter-form'],
+        ],
+        'search' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => ['class' => ['form-item']],
+          'label' => [
+            '#type' => 'html_tag',
+            '#tag' => 'label',
+            '#attributes' => ['for' => 'edit-search'],
+            '#value' => $this->t('Source ID'),
+          ],
+          'input' => [
+            '#type' => 'html_tag',
+            '#tag' => 'input',
+            '#attributes' => [
+              'type' => 'text',
+              'name' => 'search',
+              'id' => 'edit-search',
+              'value' => $search,
+              'placeholder' => $this->t('Search source ID'),
+              'class' => ['form-text'],
+            ],
+          ],
+        ],
+        'actions' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => ['class' => ['form-actions']],
+          'submit' => [
+            '#type' => 'html_tag',
+            '#tag' => 'input',
+            '#attributes' => [
+              'type' => 'submit',
+              'value' => $this->t('Filter'),
+              'class' => ['button', 'button--primary'],
+            ],
+          ],
+        ],
+      ],
+    ];
   }
 
   /**
@@ -779,7 +1108,11 @@ class MigrationDetailController extends ControllerBase {
    */
   protected function buildPager(string $migrationId, int $currentPage, int $total, Request $request, string $tab = 'items'): array {
     $totalPages = (int) ceil($total / self::ITEMS_PER_PAGE);
-    $route = $tab === 'messages' ? 'migrate_admin.migration_messages' : 'migrate_admin.migration_detail';
+    $routeMap = [
+      'messages' => 'migrate_admin.migration_messages',
+      'failed' => 'migrate_admin.migration_failed_items',
+    ];
+    $route = $routeMap[$tab] ?? 'migrate_admin.migration_detail';
 
     $queryParams = $request->query->all();
     $links = [];

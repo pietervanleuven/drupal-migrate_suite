@@ -22,6 +22,22 @@ migrate_admin.migration_messages:
   requirements:
     _permission: 'view migrate suite dashboard'
 
+migrate_admin.migration_failed_items:
+  path: '/admin/structure/migrate-suite/{migration_id}/failed'
+  defaults:
+    _controller: '\Drupal\migrate_admin\Controller\MigrationDetailController::failedItems'
+    _title: 'Failed Items'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
+migrate_admin.migration_reset_failed:
+  path: '/admin/structure/migrate-suite/{migration_id}/failed/reset'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\FailedItemsResetForm'
+    _title: 'Reset Failed Items'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
 migrate_admin.migration_run_confirm:
   path: '/admin/structure/migrate-suite/{migration_id}/run'
   defaults:
