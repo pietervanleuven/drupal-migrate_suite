@@ -21,3 +21,19 @@ migrate_admin.migration_messages:
     _title: 'Migration Messages'
   requirements:
     _permission: 'view migrate suite dashboard'
+
+migrate_admin.migration_run_confirm:
+  path: '/admin/structure/migrate-suite/{migration_id}/run'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\MigrationRunConfirmForm'
+    _title: 'Confirm Migration Run'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
+migrate_admin.migration_rollback_confirm:
+  path: '/admin/structure/migrate-suite/{migration_id}/rollback'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\MigrationRollbackConfirmForm'
+    _title: 'Confirm Migration Rollback'
+  requirements:
+    _permission: 'view migrate suite dashboard'

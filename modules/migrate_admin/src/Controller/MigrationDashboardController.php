@@ -122,6 +122,18 @@ class MigrationDashboardController extends ControllerBase {
       // Get last run timestamp.
       $lastRun = $this->getLastRunTimestamp($migrationId);
 
+      // Determine run/rollback access.
+      $canRun = FALSE;
+      $canRollback = FALSE;
+      if ($permissionsModuleEnabled) {
+        $canRun = $this->migrateAccessCheck->canRunMigration($account, $migrationId);
+        $canRollback = $this->migrateAccessCheck->canRollbackMigration($account, $migrationId);
+      }
+      elseif ($account->hasPermission('administer migrations') || $account->hasPermission('administer site configuration')) {
+        $canRun = TRUE;
+        $canRollback = TRUE;
+      }
+
       $groupedMigrations[$group][$migrationId] = [
         'label' => $label,
         'group' => $group,
@@ -130,6 +142,8 @@ class MigrationDashboardController extends ControllerBase {
         'imported_count' => $counts['imported'],
         'failed_count' => $counts['failed'],
         'last_run' => $lastRun,
+        'can_run' => $canRun,
+        'can_rollback' => $canRollback,
       ];
     }
 
@@ -465,6 +479,7 @@ class MigrationDashboardController extends ControllerBase {
    */
   protected function buildGroupTable(string $group, array $migrations): array {
     $rows = [];
+    $showActions = FALSE;
     foreach ($migrations as $migrationId => $data) {
       $statusBadge = $this->buildStatusBadge($data['status']);
 
@@ -472,7 +487,19 @@ class MigrationDashboardController extends ControllerBase {
         ? $this->dateFormatter->format($data['last_run'], 'short')
         : $this->t('Never');
 
-      $rows[] = [
+      // Build action links.
+      $actions = [];
+      if ($data['can_run']) {
+        $showActions = TRUE;
+        $actions[] = Link::fromTextAndUrl($this->t('Run'), Url::fromRoute('migrate_admin.migration_run_confirm', ['migration_id' => $migrationId]))->toString();
+      }
+      if ($data['can_rollback']) {
+        $showActions = TRUE;
+        $actions[] = Link::fromTextAndUrl($this->t('Rollback'), Url::fromRoute('migrate_admin.migration_rollback_confirm', ['migration_id' => $migrationId]))->toString();
+      }
+      $actionsMarkup = $actions ? implode(' | ', $actions) : '';
+
+      $row = [
         Link::fromTextAndUrl($data['label'], Url::fromRoute('migrate_admin.migration_detail', ['migration_id' => $migrationId]))->toString(),
         $data['group'],
         $statusBadge,
@@ -480,8 +507,21 @@ class MigrationDashboardController extends ControllerBase {
         $data['imported_count'],
         $data['failed_count'],
         $lastRun,
+        ['data' => ['#markup' => $actionsMarkup]],
       ];
+      $rows[] = $row;
     }
+
+    $header = [
+      $this->t('Migration'),
+      $this->t('Group'),
+      $this->t('Status'),
+      $this->t('Source count'),
+      $this->t('Imported'),
+      $this->t('Failed'),
+      $this->t('Last run'),
+      $this->t('Actions'),
+    ];
 
     return [
       '#type' => 'details',
@@ -492,15 +532,7 @@ class MigrationDashboardController extends ControllerBase {
       '#open' => TRUE,
       'table' => [
         '#type' => 'table',
-        '#header' => [
-          $this->t('Migration'),
-          $this->t('Group'),
-          $this->t('Status'),
-          $this->t('Source count'),
-          $this->t('Imported'),
-          $this->t('Failed'),
-          $this->t('Last run'),
-        ],
+        '#header' => $header,
         '#rows' => $rows,
         '#empty' => $this->t('No migrations in this group.'),
       ],

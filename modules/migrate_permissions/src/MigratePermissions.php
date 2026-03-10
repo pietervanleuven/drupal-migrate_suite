@@ -53,6 +53,16 @@ class MigratePermissions implements ContainerInjectionInterface {
         'title' => $this->t('View migration: @label', ['@label' => $label]),
         'description' => $this->t('Allows viewing the @label migration on the Migrate Suite dashboard.', ['@label' => $label]),
       ];
+
+      $permissions["run migration $safe_id"] = [
+        'title' => $this->t('Run migration: @label', ['@label' => $label]),
+        'description' => $this->t('Allows running the @label migration import.', ['@label' => $label]),
+      ];
+
+      $permissions["rollback migration $safe_id"] = [
+        'title' => $this->t('Rollback migration: @label', ['@label' => $label]),
+        'description' => $this->t('Allows rolling back the @label migration.', ['@label' => $label]),
+      ];
     }
 
     return $permissions;
