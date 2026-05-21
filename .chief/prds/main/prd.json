@@ -1,0 +1,176 @@
+{
+  "project": "Migrate Suite",
+  "description": "Migrate Suite is a Drupal 10.4+ / 11.x module that provides an administration dashboard for managing and monitoring migrations. It fills a major gap in the Drupal migration ecosystem: once migrations are configured, there is no editor-friendly way to monitor their status, inspect migrated content, or control access per migration. The core Migrate module and Migrate Tools provide Drush commands and a minimal admin page, but site managers, content leads, and non-developer admins are left without visibility. Migrate Suite is a parent module with four independently installable submodules: migrate_admin (Migration dashboard with status overview and imported items list), migrate_source_field (Content provenance meta field and original source link field on migrated entities), migrate_permissions (Granular per-migration permissions integrated with Drupal's permission system), and migrate_health (Health badges, stale detection, and failed item tracking). This PRD covers Phase 1 (MVP) only.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Set up shared services in migrate_suite parent module",
+      "description": "As a developer, I need shared services in the parent module so that all submodules can query migration map/message tables and access run history without duplicating code.",
+      "acceptanceCriteria": [
+        "migrate_suite.info.yml declares the module with dependency on core migrate",
+        "MigrateMapQuery service exists that can: look up destination IDs by source ID, list all imported items for a migration, count items by status (imported/failed)",
+        "MigrateMessageQuery service exists that can: fetch messages for a specific migration, fetch messages for a specific source ID within a migration",
+        "Database schema defines migrate_suite_run_log table with columns: id, migration_id, status (idle/running/completed/failed), started, finished, items_processed, items_created, items_updated, items_failed",
+        "Event subscriber listens to MigrateEvents::PRE_IMPORT, POST_IMPORT, PRE_ROW_SAVE, POST_ROW_SAVE and logs run data to migrate_suite_run_log",
+        "All services are registered in migrate_suite.services.yml",
+        "Module installs and uninstalls cleanly (schema install/uninstall hooks work)",
+        "PHPStan/phpcs passes at Drupal coding standards"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "US-002",
+      "title": "Migration overview dashboard page",
+      "description": "As a site administrator, I want a dashboard listing all migrations with their current status so that I can monitor migration progress without using Drush.",
+      "acceptanceCriteria": [
+        "Route at /admin/structure/migrate-suite with title \"Migration Dashboard\"",
+        "Page lists all migration plugin instances with columns: label, migration group, status (idle/importing/rolling back/completed/failed), total source count, imported count, failed count, last run timestamp",
+        "Status is displayed with a colored badge: green (completed/idle), blue (importing), red (failed), yellow (rolling back)",
+        "Migrations are grouped by migration group with collapsible sections",
+        "Filter form at top: text search (migration ID/label), status dropdown, migration group dropdown",
+        "Each migration row links to a detail page (US-003)",
+        "Page uses Drupal's admin theme and standard table formatting",
+        "Empty state message shown when no migrations exist",
+        "Page permission: view migrate suite dashboard (provided by migrate_admin)"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "US-003",
+      "title": "Migration detail page with imported items",
+      "description": "As a content lead, I want to see all entities imported by a specific migration so that I can verify content was migrated correctly.",
+      "acceptanceCriteria": [
+        "Route at /admin/structure/migrate-suite/{migration_id} showing migration detail",
+        "Summary section: migration label, group, source plugin, destination plugin, status, last run stats (from migrate_suite_run_log)",
+        "Imported items table sourced from migrate_map_{migration_id} with columns: source ID(s), destination entity (linked to entity view), status (source_row_status: imported/needs update), last import timestamp (from map table last_imported column)",
+        "Pager: 50 items per page",
+        "Filter: text search on source ID, status dropdown (imported/needs update/failed)",
+        "Migration messages tab showing messages from migrate_message_{migration_id} with columns: source ID(s), severity (icon), message text",
+        "Messages filterable by severity (notice/warning/error)",
+        "Uses same permission as dashboard: view migrate suite dashboard"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "US-004",
+      "title": "Per-migration view permissions",
+      "description": "As a site administrator, I want to control which roles can view specific migrations so that content leads only see migrations relevant to them.",
+      "acceptanceCriteria": [
+        "migrate_permissions.info.yml declares the submodule with dependency on migrate_suite",
+        "Module dynamically generates permissions in a permission callback: view migration {migration_id} for each migration plugin instance",
+        "Permissions appear in Drupal's standard permissions page (/admin/people/permissions) under a \"Migrate Suite\" group",
+        "Dashboard (US-002) filters the migration list based on the user's per-migration view permissions",
+        "Detail page (US-003) checks per-migration view permission before displaying",
+        "A user with view migrate suite dashboard permission but without any per-migration permissions sees an empty dashboard with a help message",
+        "A user with administer migrations (from migrate_tools) or administer site configuration bypasses per-migration checks",
+        "Permission names are derived from the migration plugin ID (machine-safe)"
+      ],
+      "priority": 4,
+      "passes": true
+    },
+    {
+      "id": "US-005",
+      "title": "Per-migration run permissions",
+      "description": "As a site administrator, I want to control which roles can execute or rollback specific migrations so that only authorized users can trigger imports.",
+      "acceptanceCriteria": [
+        "Dynamic permissions generated: run migration {migration_id} and rollback migration {migration_id} for each migration",
+        "Dashboard row shows \"Run\" and \"Rollback\" action buttons only if user has the corresponding permission",
+        "Run action triggers a batch import of the migration and redirects to a batch progress page",
+        "Rollback action triggers a batch rollback and redirects to a batch progress page",
+        "Confirmation form shown before run/rollback with migration label and item count",
+        "administer migrations permission bypasses per-migration run/rollback checks",
+        "Actions respect migration dependencies (warn if dependent migrations haven't run)"
+      ],
+      "priority": 5,
+      "passes": true
+    },
+    {
+      "id": "US-006",
+      "title": "Permission matrix UI",
+      "description": "As a site administrator, I want a matrix view of migration permissions so that I can quickly see and configure which roles have access to which migrations.",
+      "acceptanceCriteria": [
+        "Route at /admin/structure/migrate-suite/permissions with title \"Migration Permissions\"",
+        "Matrix table: rows = migrations (grouped by migration group), columns = roles",
+        "Each cell shows checkboxes for: view, run, rollback",
+        "Form saves permissions via Drupal's user_role_grant_permissions / user_role_revoke_permissions API",
+        "Matrix is filterable by migration group",
+        "Requires administer permissions permission to access",
+        "Changes are logged to watchdog"
+      ],
+      "priority": 6,
+      "passes": true
+    },
+    {
+      "id": "US-007",
+      "title": "Migration health indicators",
+      "description": "As a site administrator, I want to see at-a-glance health badges on each migration so that I can identify problems quickly.",
+      "acceptanceCriteria": [
+        "migrate_health.info.yml declares the submodule with dependency on migrate_suite",
+        "Each migration on the dashboard shows a health badge: healthy (green), stale (yellow), failing (red)",
+        "Healthy: migration has run within configured threshold AND failure rate is below configured threshold",
+        "Stale: migration has not run within the configured \"stale after X days\" threshold (default: 7 days)",
+        "Failing: migration's failure rate (failed items / total items) exceeds configured threshold (default: 5%)",
+        "Health thresholds configurable via settings form at /admin/structure/migrate-suite/settings",
+        "Settings form fields: stale threshold (days, default 7), failure rate threshold (percentage, default 5)",
+        "Health is computed on dashboard load from migrate_suite_run_log and map table data (no separate cron task in MVP)",
+        "Aggregate health summary at top of dashboard: \"X healthy, Y stale, Z failing\""
+      ],
+      "priority": 7,
+      "passes": true
+    },
+    {
+      "id": "US-008",
+      "title": "Failed item tracking",
+      "description": "As a site administrator, I want to see which items failed to import with their error details so that I can take corrective action.",
+      "acceptanceCriteria": [
+        "Migration detail page (US-003) shows a \"Failed Items\" tab",
+        "Tab lists items from migrate_map_{migration_id} where source_row_status = 2 (MigrateIdMapInterface::STATUS_FAILED)",
+        "Columns: source ID(s), error message (from migrate_message_{migration_id}), last attempt timestamp",
+        "Failed item count shown as a badge on the tab header",
+        "Filter by source ID text search",
+        "Pager: 50 items per page",
+        "\"Reset status\" bulk action to mark selected failed items for retry (sets source_row_status back to 0)",
+        "Reset action requires run migration {migration_id} permission (from migrate_permissions, or administer migrations if migrate_permissions is not installed)"
+      ],
+      "priority": 8,
+      "passes": true
+    },
+    {
+      "id": "US-009",
+      "title": "Content provenance pseudo-field on migrated entities",
+      "description": "As a content editor, I want to see migration provenance information on entity edit/view pages so that I can tell where content came from and when it was imported.",
+      "acceptanceCriteria": [
+        "migrate_source_field.info.yml declares the submodule with dependency on migrate_suite",
+        "Module implements hook_entity_extra_field_info() to register a \"Migration provenance\" pseudo-field on node entities",
+        "Pseudo-field is configurable per content type via \"Manage display\" (can be shown/hidden, reordered)",
+        "When displayed, shows a fieldset with: migration label (linked to detail page if user has permission), import date (from map table last_imported), source ID(s)",
+        "If entity is not found in any migrate_map_* table, pseudo-field is hidden (no empty fieldset)",
+        "Provenance data is computed at render time by querying map tables (not stored redundantly)",
+        "Results are cached per entity with appropriate cache tags (invalidated on migration run)",
+        "Works on both entity canonical view and edit form"
+      ],
+      "priority": 9,
+      "passes": true
+    },
+    {
+      "id": "US-010",
+      "title": "Original source link field",
+      "description": "As a content editor, I want a link back to the original content on the source platform so that I can compare migrated content with the original.",
+      "acceptanceCriteria": [
+        "Configurable source URL pattern per migration via settings form, supporting a [source_id] token (e.g., https://old-site.com/node/[source_id])",
+        "Settings stored in migrate_suite.settings config, keyed by migration ID",
+        "Source link displayed within the provenance pseudo-field (US-009) as a clickable URL",
+        "Link opens in a new tab (target=\"_blank\" with rel=\"noopener\")",
+        "If no URL pattern is configured for a migration, the source link row is omitted (not shown as empty)",
+        "URL pattern configuration form accessible at /admin/structure/migrate-suite/settings/source-links",
+        "Form lists all migrations with a text field for each URL pattern",
+        "Token replacement handles multiple source IDs (composite keys) by joining with /"
+      ],
+      "priority": 10,
+      "passes": true
+    }
+  ]
+}
