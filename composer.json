@@ -1,0 +1,20 @@
+{
+    "name": "drupal/migrate_suite",
+    "type": "drupal-module",
+    "description": "Administration dashboard for managing and monitoring Drupal migrations.",
+    "keywords": [
+        "Drupal",
+        "migration",
+        "dashboard",
+        "monitoring"
+    ],
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://www.drupal.org/project/migrate_suite",
+    "support": {
+        "issues": "https://www.drupal.org/project/issues/migrate_suite",
+        "source": "https://git.drupalcode.org/project/migrate_suite"
+    },
+    "require": {
+        "drupal/core": "^10.4 || ^11"
+    }
+}
