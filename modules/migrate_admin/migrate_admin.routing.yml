@@ -38,6 +38,22 @@ migrate_admin.migration_reset_failed:
   requirements:
     _permission: 'view migrate suite dashboard'
 
+migrate_admin.migration_partial_rollback:
+  path: '/admin/structure/migrate-suite/{migration_id}/partial-rollback'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\PartialRollbackForm'
+    _title: 'Select Items for Rollback'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
+migrate_admin.migration_partial_rollback_confirm:
+  path: '/admin/structure/migrate-suite/{migration_id}/partial-rollback/confirm'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\PartialRollbackConfirmForm'
+    _title: 'Confirm Partial Rollback'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
 migrate_admin.migration_rerun_by_error:
   path: '/admin/structure/migrate-suite/{migration_id}/messages/rerun'
   defaults:

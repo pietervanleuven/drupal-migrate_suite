@@ -216,4 +216,72 @@ class MigrateMapQuery {
     return $counts;
   }
 
+  /**
+   * Fetches specific map rows by their source IDs.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param array $sourceIdSets
+   *   Array of source ID value arrays.
+   *
+   * @return array
+   *   Array of map table row objects.
+   */
+  public function getMapRowsBySourceIds(string $migrationId, array $sourceIdSets): array {
+    $table = $this->getMapTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table) || empty($sourceIdSets)) {
+      return [];
+    }
+
+    $rows = [];
+    foreach ($sourceIdSets as $sourceIds) {
+      $query = $this->database->select($table, 'map')
+        ->fields('map');
+
+      foreach ($sourceIds as $index => $value) {
+        $query->condition('sourceid' . ($index + 1), $value);
+      }
+
+      $row = $query->execute()->fetchObject();
+      if ($row) {
+        $rows[] = $row;
+      }
+    }
+
+    return $rows;
+  }
+
+  /**
+   * Deletes specific rows from the map table by source IDs.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param array $sourceIdSets
+   *   Array of source ID value arrays.
+   *
+   * @return int
+   *   The number of rows deleted.
+   */
+  public function deleteMapRows(string $migrationId, array $sourceIdSets): int {
+    $table = $this->getMapTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table) || empty($sourceIdSets)) {
+      return 0;
+    }
+
+    $deleted = 0;
+    foreach ($sourceIdSets as $sourceIds) {
+      $query = $this->database->delete($table);
+
+      foreach ($sourceIds as $index => $value) {
+        $query->condition('sourceid' . ($index + 1), $value);
+      }
+
+      $deleted += $query->execute();
+    }
+
+    return $deleted;
+  }
+
 }
