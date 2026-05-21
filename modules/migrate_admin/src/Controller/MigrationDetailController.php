@@ -931,6 +931,7 @@ class MigrationDetailController extends ControllerBase {
    */
   protected function buildMessagesSection(string $migrationId, Request $request): array {
     $severityFilter = $request->query->get('severity', '');
+    $search = trim((string) $request->query->get('search', ''));
     $grouped = $request->query->get('group', '') === '1';
     $page = max(0, (int) $request->query->get('page', 0));
 
@@ -959,8 +960,8 @@ class MigrationDetailController extends ControllerBase {
       ],
     ];
 
-    // Build severity filter.
-    $build['filters'] = $this->buildMessageFilterForm($migrationId, $severityFilter);
+    // Build severity filter with search.
+    $build['filters'] = $this->buildMessageFilterForm($migrationId, $severityFilter, $search);
 
     // View toggle.
     $toggleUrl = Url::fromRoute('migrate_admin.migration_messages', ['migration_id' => $migrationId], [
@@ -981,7 +982,7 @@ class MigrationDetailController extends ControllerBase {
       $build['table'] = $this->buildGroupedMessagesTable($migrationId, $page);
     }
     else {
-      $build['table'] = $this->buildIndividualMessagesTable($migrationId, $severityFilter, $page);
+      $build['table'] = $this->buildIndividualMessagesTable($migrationId, $severityFilter, $search, $page);
     }
 
     // Build pager.
@@ -989,6 +990,9 @@ class MigrationDetailController extends ControllerBase {
     $countQuery = $this->database->select($table, 'msg');
     if ($severityFilter !== '' && isset($severityMap[$severityFilter])) {
       $countQuery->condition('level', $severityMap[$severityFilter]);
+    }
+    if ($search !== '') {
+      $countQuery->condition('message', '%' . $this->database->escapeLike($search) . '%', 'LIKE');
     }
     $total = (int) $countQuery->countQuery()->execute()->fetchField();
 
@@ -1002,7 +1006,7 @@ class MigrationDetailController extends ControllerBase {
   /**
    * Builds the individual (non-grouped) messages table.
    */
-  protected function buildIndividualMessagesTable(string $migrationId, string $severityFilter, int $page): array {
+  protected function buildIndividualMessagesTable(string $migrationId, string $severityFilter, string $search, int $page): array {
     $table = 'migrate_message_' . $migrationId;
 
     $query = $this->database->select($table, 'msg')
@@ -1011,6 +1015,10 @@ class MigrationDetailController extends ControllerBase {
     $severityMap = ['notice' => 6, 'warning' => 4, 'error' => 3];
     if ($severityFilter !== '' && isset($severityMap[$severityFilter])) {
       $query->condition('level', $severityMap[$severityFilter]);
+    }
+
+    if ($search !== '') {
+      $query->condition('message', '%' . $this->database->escapeLike($search) . '%', 'LIKE');
     }
 
     $query->range($page * self::ITEMS_PER_PAGE, self::ITEMS_PER_PAGE);
@@ -1192,13 +1200,17 @@ class MigrationDetailController extends ControllerBase {
    * @return array
    *   A render array.
    */
-  protected function buildMessageFilterForm(string $migrationId, string $severityFilter): array {
+  protected function buildMessageFilterForm(string $migrationId, string $severityFilter, string $search = ''): array {
     $severityOptions = [
       '' => $this->t('- All severities -'),
       'notice' => $this->t('Notice'),
       'warning' => $this->t('Warning'),
       'error' => $this->t('Error'),
     ];
+
+    $exportUrl = Url::fromRoute('migrate_admin.migration_messages_export', [
+      'migration_id' => $migrationId,
+    ], ['query' => array_filter(['severity' => $severityFilter])]);
 
     return [
       '#type' => 'container',
@@ -1209,6 +1221,29 @@ class MigrationDetailController extends ControllerBase {
         '#attributes' => [
           'method' => 'get',
           'class' => ['migrate-dashboard-filter-form'],
+        ],
+        'search' => [
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#attributes' => ['class' => ['form-item']],
+          'label' => [
+            '#type' => 'html_tag',
+            '#tag' => 'label',
+            '#attributes' => ['for' => 'edit-msg-search'],
+            '#value' => $this->t('Search messages'),
+          ],
+          'input' => [
+            '#type' => 'html_tag',
+            '#tag' => 'input',
+            '#attributes' => [
+              'type' => 'text',
+              'name' => 'search',
+              'id' => 'edit-msg-search',
+              'value' => $search,
+              'placeholder' => $this->t('Search message text'),
+              'class' => ['form-text'],
+            ],
+          ],
         ],
         'severity' => [
           '#type' => 'html_tag',
@@ -1244,6 +1279,15 @@ class MigrationDetailController extends ControllerBase {
               'class' => ['button', 'button--primary'],
             ],
           ],
+        ],
+      ],
+      'export' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Export CSV'),
+        '#attributes' => [
+          'href' => $exportUrl->toString(),
+          'class' => ['button'],
         ],
       ],
     ];

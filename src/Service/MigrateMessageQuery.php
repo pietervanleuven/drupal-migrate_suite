@@ -149,6 +149,86 @@ class MigrateMessageQuery {
    * @return array
    *   An array of message rows for the given source ID.
    */
+  /**
+   * Searches messages by text with optional severity filter.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param string $search
+   *   Search string to match against message text.
+   * @param int|null $severity
+   *   Optional severity level filter (RFC 5424).
+   * @param int $limit
+   *   The number of messages to return.
+   * @param int $offset
+   *   The offset for pagination.
+   *
+   * @return array
+   *   An array of message rows.
+   */
+  public function searchMessages(string $migrationId, string $search, ?int $severity = NULL, int $limit = 50, int $offset = 0): array {
+    $table = $this->getMessageTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return [];
+    }
+
+    $query = $this->database->select($table, 'msg')
+      ->fields('msg');
+
+    if ($search !== '') {
+      $query->condition('message', '%' . $this->database->escapeLike($search) . '%', 'LIKE');
+    }
+
+    if ($severity !== NULL) {
+      $query->condition('level', $severity);
+    }
+
+    return $query->range($offset, $limit)->execute()->fetchAll();
+  }
+
+  /**
+   * Yields all messages for export, with optional severity filter.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param int|null $severity
+   *   Optional severity level filter.
+   *
+   * @return \Generator
+   *   Yields message row objects.
+   */
+  public function getAllMessages(string $migrationId, ?int $severity = NULL): \Generator {
+    $table = $this->getMessageTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return;
+    }
+
+    $query = $this->database->select($table, 'msg')
+      ->fields('msg');
+
+    if ($severity !== NULL) {
+      $query->condition('level', $severity);
+    }
+
+    $result = $query->execute();
+    while ($row = $result->fetchObject()) {
+      yield $row;
+    }
+  }
+
+  /**
+   * Fetches messages for a specific source ID within a migration.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param array $sourceIdValues
+   *   The source ID values.
+   *
+   * @return array
+   *   An array of message rows for the given source ID.
+   */
   public function getMessagesForSourceId(string $migrationId, array $sourceIdValues): array {
     $table = $this->getMessageTableName($migrationId);
 
