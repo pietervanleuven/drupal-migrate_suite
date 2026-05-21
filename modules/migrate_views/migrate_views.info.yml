@@ -1,0 +1,8 @@
+name: Migrate Views
+type: module
+description: 'Views integration for migration run history.'
+package: Migrate Suite
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite
+  - drupal:views

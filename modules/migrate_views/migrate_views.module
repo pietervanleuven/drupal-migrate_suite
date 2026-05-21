@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * @file
+ * Provides Views integration for migration run history.
+ */
+
+declare(strict_types=1);
