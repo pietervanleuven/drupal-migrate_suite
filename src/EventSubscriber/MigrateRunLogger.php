@@ -11,6 +11,8 @@ use Drupal\migrate\Event\MigrateEvents;
 use Drupal\migrate\Event\MigrateImportEvent;
 use Drupal\migrate\Event\MigratePostRowSaveEvent;
 use Drupal\migrate\Event\MigratePreRowSaveEvent;
+use Drupal\migrate\Event\MigrateRollbackEvent;
+use Drupal\migrate\Event\MigrateRowDeleteEvent;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -56,6 +58,9 @@ class MigrateRunLogger implements EventSubscriberInterface {
       MigrateEvents::POST_IMPORT => ['onPostImport'],
       MigrateEvents::PRE_ROW_SAVE => ['onPreRowSave'],
       MigrateEvents::POST_ROW_SAVE => ['onPostRowSave'],
+      MigrateEvents::PRE_ROLLBACK => ['onPreRollback'],
+      MigrateEvents::POST_ROLLBACK => ['onPostRollback'],
+      MigrateEvents::POST_ROW_DELETE => ['onPostRowDelete'],
     ];
   }
 
@@ -175,6 +180,77 @@ class MigrateRunLogger implements EventSubscriberInterface {
       case MigrateIdMapInterface::STATUS_FAILED:
         $this->counters[$migrationId]['failed']++;
         break;
+    }
+  }
+
+  /**
+   * Reacts to the pre-rollback event.
+   *
+   * @param \Drupal\migrate\Event\MigrateRollbackEvent $event
+   *   The rollback event.
+   */
+  public function onPreRollback(MigrateRollbackEvent $event): void {
+    $migrationId = $event->getMigration()->id();
+
+    $this->counters[$migrationId] = [
+      'processed' => 0,
+      'created' => 0,
+      'updated' => 0,
+      'failed' => 0,
+      'deleted' => 0,
+    ];
+
+    $id = $this->database->insert('migrate_suite_run_log')
+      ->fields([
+        'migration_id' => $migrationId,
+        'status' => 'running',
+        'operation' => 'rollback',
+        'started' => $this->time->getRequestTime(),
+      ])
+      ->execute();
+
+    $this->activeRuns[$migrationId] = (int) $id;
+  }
+
+  /**
+   * Reacts to the post-rollback event.
+   *
+   * @param \Drupal\migrate\Event\MigrateRollbackEvent $event
+   *   The rollback event.
+   */
+  public function onPostRollback(MigrateRollbackEvent $event): void {
+    $migrationId = $event->getMigration()->id();
+
+    if (!isset($this->activeRuns[$migrationId])) {
+      return;
+    }
+
+    $counters = $this->counters[$migrationId] ?? ['deleted' => 0];
+
+    $this->database->update('migrate_suite_run_log')
+      ->fields([
+        'status' => 'completed',
+        'finished' => $this->time->getRequestTime(),
+        'items_deleted' => $counters['deleted'],
+      ])
+      ->condition('id', $this->activeRuns[$migrationId])
+      ->execute();
+
+    $this->cacheTagsInvalidator->invalidateTags(['migrate_source_field:provenance']);
+
+    unset($this->activeRuns[$migrationId], $this->counters[$migrationId]);
+  }
+
+  /**
+   * Reacts to the post-row-delete event.
+   *
+   * @param \Drupal\migrate\Event\MigrateRowDeleteEvent $event
+   *   The row delete event.
+   */
+  public function onPostRowDelete(MigrateRowDeleteEvent $event): void {
+    $migrationId = $event->getMigration()->id();
+    if (isset($this->counters[$migrationId])) {
+      $this->counters[$migrationId]['deleted']++;
     }
   }
 

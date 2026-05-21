@@ -72,13 +72,62 @@ function migrate_suite_schema(): array {
         'not null' => TRUE,
         'default' => 0,
       ],
+      'operation' => [
+        'description' => 'Operation type: import or rollback.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => 'import',
+      ],
+      'items_deleted' => [
+        'description' => 'Number of items deleted (rollback).',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
       'migration_id' => ['migration_id'],
       'status' => ['status'],
+      'operation' => ['operation'],
     ],
   ];
 
   return $schema;
+}
+
+/**
+ * Add 'operation' and 'items_deleted' columns to migrate_suite_run_log.
+ */
+function migrate_suite_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+
+  $schema->addField('migrate_suite_run_log', 'operation', [
+    'description' => 'Operation type: import or rollback.',
+    'type' => 'varchar',
+    'length' => 16,
+    'not null' => TRUE,
+    'default' => 'import',
+  ]);
+
+  $schema->addField('migrate_suite_run_log', 'items_deleted', [
+    'description' => 'Number of items deleted (rollback).',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ]);
+
+  $schema->addIndex('migrate_suite_run_log', 'operation', ['operation'], [
+    'fields' => [
+      'operation' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => 'import',
+      ],
+    ],
+  ]);
 }
