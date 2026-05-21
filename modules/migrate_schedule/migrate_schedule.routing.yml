@@ -1,0 +1,7 @@
+migrate_schedule.settings:
+  path: '/admin/structure/migrate-suite/settings/schedules'
+  defaults:
+    _form: '\Drupal\migrate_schedule\Form\ScheduleSettingsForm'
+    _title: 'Migration Schedules'
+  requirements:
+    _permission: 'administer site configuration'

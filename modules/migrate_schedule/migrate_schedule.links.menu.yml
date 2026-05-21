@@ -1,0 +1,5 @@
+migrate_schedule.settings:
+  title: 'Migration Schedules'
+  route_name: migrate_schedule.settings
+  parent: migrate_admin.dashboard
+  weight: 15

@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Provides cron-based scheduling for migrations.
+ */
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_cron().
+ */
+function migrate_schedule_cron(): void {
+  /** @var \Drupal\migrate_schedule\Service\ScheduleManager $scheduleManager */
+  $scheduleManager = \Drupal::service('migrate_schedule.manager');
+  $queue = \Drupal::queue('migrate_schedule_run');
+
+  foreach ($scheduleManager->getSchedules() as $migrationId => $schedule) {
+    if ($scheduleManager->isDue($migrationId)) {
+      $queue->createItem([
+        'migration_id' => $migrationId,
+        'skip_if_no_changes' => $schedule['skip_if_no_changes'] ?? FALSE,
+      ]);
+    }
+  }
+}

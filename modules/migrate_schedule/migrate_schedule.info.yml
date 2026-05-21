@@ -1,0 +1,7 @@
+name: Migrate Schedule
+type: module
+description: 'Cron-based per-migration scheduling with dependency ordering.'
+package: Migrate Suite
+core_version_requirement: ^10.4 || ^11
+dependencies:
+  - migrate_suite:migrate_suite
