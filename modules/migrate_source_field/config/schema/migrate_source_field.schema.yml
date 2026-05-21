@@ -1,0 +1,10 @@
+migrate_suite.settings:
+  type: config_object
+  label: 'Migrate Suite settings'
+  mapping:
+    source_links:
+      type: sequence
+      label: 'Source link URL patterns'
+      sequence:
+        type: string
+        label: 'Source URL pattern'
