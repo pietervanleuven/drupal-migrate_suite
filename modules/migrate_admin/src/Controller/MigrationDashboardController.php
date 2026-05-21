@@ -10,6 +10,7 @@ use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
+use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_health\Service\MigrationHealthAnalyzer;
 use Drupal\migrate_permissions\MigrateAccessCheck;
@@ -227,7 +228,7 @@ class MigrationDashboardController extends ControllerBase {
    * @return string
    *   The status string: idle, importing, rolling_back, completed, or failed.
    */
-  protected function getMigrationStatus($migration): string {
+  protected function getMigrationStatus(MigrationInterface $migration): string {
     $status = $migration->getStatusLabel();
 
     // Map Drupal's status labels to our internal statuses.

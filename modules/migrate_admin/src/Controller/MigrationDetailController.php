@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Url;
+use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -535,7 +536,7 @@ class MigrationDetailController extends ControllerBase {
    *
    * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
    */
-  protected function loadMigration(string $migration_id) {
+  protected function loadMigration(string $migration_id): MigrationInterface {
     $migrations = $this->migrationPluginManager->createInstances([$migration_id]);
     if (empty($migrations[$migration_id])) {
       throw new NotFoundHttpException();
@@ -558,7 +559,7 @@ class MigrationDetailController extends ControllerBase {
    * @return string
    *   The status string.
    */
-  protected function getMigrationStatus($migration): string {
+  protected function getMigrationStatus(MigrationInterface $migration): string {
     $statusString = (string) $migration->getStatusLabel();
     $statusMap = [
       'Idle' => 'idle',
