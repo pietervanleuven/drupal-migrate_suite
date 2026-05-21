@@ -38,6 +38,14 @@ migrate_admin.migration_reset_failed:
   requirements:
     _permission: 'view migrate suite dashboard'
 
+migrate_admin.migration_history:
+  path: '/admin/structure/migrate-suite/{migration_id}/history'
+  defaults:
+    _controller: '\Drupal\migrate_admin\Controller\MigrationDetailController::history'
+    _title: 'Run History'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
 migrate_admin.migration_run_confirm:
   path: '/admin/structure/migrate-suite/{migration_id}/run'
   defaults:

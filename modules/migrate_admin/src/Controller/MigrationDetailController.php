@@ -188,6 +188,104 @@ class MigrationDetailController extends ControllerBase {
   }
 
   /**
+   * Builds the run history page.
+   *
+   * @param string $migration_id
+   *   The migration plugin ID.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   *
+   * @return array
+   *   A render array.
+   */
+  public function history(string $migration_id, Request $request): array {
+    $migration = $this->loadMigration($migration_id);
+
+    $build = [];
+    $build['tabs'] = $this->buildTabs($migration_id, 'history');
+    $build['history'] = $this->buildHistorySection($migration_id, $request);
+
+    $build['#attached'] = [
+      'library' => ['migrate_admin/dashboard'],
+    ];
+    $build['#cache'] = [
+      'contexts' => ['url.query_args', 'url.path'],
+      'tags' => ['migration_plugins'],
+    ];
+
+    return $build;
+  }
+
+  /**
+   * Builds the run history section.
+   *
+   * @param string $migrationId
+   *   The migration ID.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   *
+   * @return array
+   *   A render array.
+   */
+  protected function buildHistorySection(string $migrationId, Request $request): array {
+    $page = max(0, (int) $request->query->get('page', 0));
+    $offset = $page * self::ITEMS_PER_PAGE;
+
+    $query = $this->database->select('migrate_suite_run_log', 'r')
+      ->fields('r')
+      ->condition('migration_id', $migrationId)
+      ->orderBy('id', 'DESC')
+      ->range($offset, self::ITEMS_PER_PAGE);
+
+    $rows = [];
+    foreach ($query->execute()->fetchAll() as $run) {
+      $started = $this->dateFormatter->format((int) $run->started, 'short');
+      $finished = $run->finished ? $this->dateFormatter->format((int) $run->finished, 'short') : '-';
+
+      $duration = '-';
+      if ($run->finished && $run->started) {
+        $seconds = (int) $run->finished - (int) $run->started;
+        $duration = $seconds < 60 ? $this->t('@seconds', ['@seconds' => $seconds . 's']) : $this->t('@mins', ['@mins' => round($seconds / 60, 1) . 'm']);
+      }
+
+      $operation = ($run->operation ?? 'import') === 'rollback'
+        ? $this->t('Rollback')
+        : $this->t('Import');
+
+      $rows[] = [
+        $operation,
+        $this->buildStatusBadge($run->status),
+        $started,
+        $finished,
+        $duration,
+        $run->items_processed ?? 0,
+        $run->items_created ?? 0,
+        $run->items_updated ?? 0,
+        $run->items_failed ?? 0,
+        $run->items_deleted ?? 0,
+      ];
+    }
+
+    return [
+      '#type' => 'table',
+      '#header' => [
+        $this->t('Operation'),
+        $this->t('Status'),
+        $this->t('Started'),
+        $this->t('Finished'),
+        $this->t('Duration'),
+        $this->t('Processed'),
+        $this->t('Created'),
+        $this->t('Updated'),
+        $this->t('Failed'),
+        $this->t('Deleted'),
+      ],
+      '#rows' => $rows,
+      '#empty' => $this->t('No run history found for this migration.'),
+    ];
+  }
+
+  /**
    * Builds the tab navigation for the detail page.
    *
    * @param string $migrationId
@@ -236,6 +334,15 @@ class MigrationDetailController extends ControllerBase {
             $activeTab === 'failed' ? 'migrate-tab--active' : '',
             $failedCount > 0 ? 'migrate-tab--has-badge' : '',
           ]),
+        ],
+      ],
+      'history_tab' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Run History'),
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.migration_history', ['migration_id' => $migrationId])->toString(),
+          'class' => array_filter(['migrate-tab', $activeTab === 'history' ? 'migrate-tab--active' : '']),
         ],
       ],
     ];
