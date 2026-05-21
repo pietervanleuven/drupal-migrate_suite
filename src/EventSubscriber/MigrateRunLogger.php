@@ -14,6 +14,7 @@ use Drupal\migrate\Event\MigratePreRowSaveEvent;
 use Drupal\migrate\Event\MigrateRollbackEvent;
 use Drupal\migrate\Event\MigrateRowDeleteEvent;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
+use Drupal\migrate_suite\Service\DeltaDetectionService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
@@ -47,6 +48,7 @@ class MigrateRunLogger implements EventSubscriberInterface {
     protected readonly Connection $database,
     protected readonly TimeInterface $time,
     protected readonly CacheTagsInvalidatorInterface $cacheTagsInvalidator,
+    protected readonly ?DeltaDetectionService $deltaDetection = NULL,
   ) {}
 
   /**
@@ -80,12 +82,28 @@ class MigrateRunLogger implements EventSubscriberInterface {
       'failed' => 0,
     ];
 
+    $fields = [
+      'migration_id' => $migrationId,
+      'status' => 'running',
+      'started' => $this->time->getRequestTime(),
+    ];
+
+    // Store source fingerprint for delta detection.
+    if ($this->deltaDetection !== NULL) {
+      $migration = $event->getMigration();
+      $sourceCount = $this->deltaDetection->getSourceCount($migration);
+      $sourceHash = $this->deltaDetection->computeSourceFingerprint($migration);
+
+      if ($sourceCount !== NULL) {
+        $fields['source_count'] = $sourceCount;
+      }
+      if ($sourceHash !== NULL) {
+        $fields['source_hash'] = $sourceHash;
+      }
+    }
+
     $id = $this->database->insert('migrate_suite_run_log')
-      ->fields([
-        'migration_id' => $migrationId,
-        'status' => 'running',
-        'started' => $this->time->getRequestTime(),
-      ])
+      ->fields($fields)
       ->execute();
 
     $this->activeRuns[$migrationId] = (int) $id;

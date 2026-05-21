@@ -86,6 +86,20 @@ function migrate_suite_schema(): array {
         'not null' => TRUE,
         'default' => 0,
       ],
+      'source_count' => [
+        'description' => 'Snapshot of source item count at run time.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'source_hash' => [
+        'description' => 'Hash of source row IDs for delta detection.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
@@ -129,5 +143,28 @@ function migrate_suite_update_10001(): void {
         'default' => 'import',
       ],
     ],
+  ]);
+}
+
+/**
+ * Add 'source_count' and 'source_hash' columns for delta detection.
+ */
+function migrate_suite_update_10002(): void {
+  $schema = \Drupal::database()->schema();
+
+  $schema->addField('migrate_suite_run_log', 'source_count', [
+    'description' => 'Snapshot of source item count at run time.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+    'default' => NULL,
+  ]);
+
+  $schema->addField('migrate_suite_run_log', 'source_hash', [
+    'description' => 'Hash of source row IDs for delta detection.',
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => FALSE,
+    'default' => NULL,
   ]);
 }

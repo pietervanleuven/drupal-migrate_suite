@@ -7,8 +7,12 @@ services:
     class: Drupal\migrate_suite\Service\MigrateMessageQuery
     arguments: ['@database']
 
+  migrate_suite.delta_detection:
+    class: Drupal\migrate_suite\Service\DeltaDetectionService
+    arguments: ['@database', '@plugin.manager.migration']
+
   migrate_suite.run_logger:
     class: Drupal\migrate_suite\EventSubscriber\MigrateRunLogger
-    arguments: ['@database', '@datetime.time', '@cache_tags.invalidator']
+    arguments: ['@database', '@datetime.time', '@cache_tags.invalidator', '@migrate_suite.delta_detection']
     tags:
       - { name: event_subscriber }
