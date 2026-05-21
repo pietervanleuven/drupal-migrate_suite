@@ -38,6 +38,14 @@ migrate_admin.migration_reset_failed:
   requirements:
     _permission: 'view migrate suite dashboard'
 
+migrate_admin.migration_rerun_by_error:
+  path: '/admin/structure/migrate-suite/{migration_id}/messages/rerun'
+  defaults:
+    _form: '\Drupal\migrate_admin\Form\RerunByErrorForm'
+    _title: 'Re-run Items by Error'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
 migrate_admin.migration_messages_export:
   path: '/admin/structure/migrate-suite/{migration_id}/messages/export'
   defaults:

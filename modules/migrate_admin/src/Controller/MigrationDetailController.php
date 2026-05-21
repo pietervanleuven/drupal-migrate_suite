@@ -1077,10 +1077,15 @@ class MigrationDetailController extends ControllerBase {
     foreach ($groups as $group) {
       $severityIcon = $this->getSeverityIcon((int) $group->level);
 
+      $rerunUrl = Url::fromRoute('migrate_admin.migration_rerun_by_error', [
+        'migration_id' => $migrationId,
+      ], ['query' => ['message' => $group->message]]);
+
       $tableRows[] = [
         ['data' => ['#markup' => $severityIcon]],
         $group->message ?? '',
         $group->count,
+        ['data' => ['#markup' => '<a href="' . $rerunUrl->toString() . '">' . $this->t('Re-run') . '</a>']],
       ];
     }
 
@@ -1090,6 +1095,7 @@ class MigrationDetailController extends ControllerBase {
         $this->t('Severity'),
         $this->t('Message'),
         $this->t('Count'),
+        $this->t('Actions'),
       ],
       '#rows' => $tableRows,
       '#empty' => $this->t('No messages found.'),

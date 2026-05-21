@@ -229,6 +229,58 @@ class MigrateMessageQuery {
    * @return array
    *   An array of message rows for the given source ID.
    */
+  /**
+   * Gets source IDs for all messages matching a specific text.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param string $messageText
+   *   The exact message text to match.
+   *
+   * @return array
+   *   Array of arrays, each containing source ID values for a matching row.
+   */
+  public function getSourceIdsForMessage(string $migrationId, string $messageText): array {
+    $table = $this->getMessageTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return [];
+    }
+
+    $rows = $this->database->select($table, 'msg')
+      ->fields('msg')
+      ->condition('message', $messageText)
+      ->execute()
+      ->fetchAll();
+
+    $sourceIdSets = [];
+    foreach ($rows as $row) {
+      $sourceIds = [];
+      for ($i = 1; $i <= 9; $i++) {
+        $col = 'src_' . $i;
+        if (isset($row->$col) && $row->$col !== NULL) {
+          $sourceIds[] = $row->$col;
+        }
+      }
+      if (!empty($sourceIds)) {
+        $sourceIdSets[] = $sourceIds;
+      }
+    }
+
+    return $sourceIdSets;
+  }
+
+  /**
+   * Fetches messages for a specific source ID within a migration.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param array $sourceIdValues
+   *   The source ID values.
+   *
+   * @return array
+   *   An array of message rows for the given source ID.
+   */
   public function getMessagesForSourceId(string $migrationId, array $sourceIdValues): array {
     $table = $this->getMessageTableName($migrationId);
 
