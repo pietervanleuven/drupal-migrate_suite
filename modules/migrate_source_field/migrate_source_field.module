@@ -163,6 +163,24 @@ function _migrate_source_field_build_provenance_display(array $provenance): arra
     $rows[] = [t('Original source'), ['data' => ['#markup' => $sourceLink]]];
   }
 
+  // Add messages link if user has dashboard access.
+  if ($hasDetailAccess) {
+    try {
+      $messagesUrl = Url::fromRoute('migrate_source_field.entity_messages', [
+        'entity_type' => 'node',
+        'entity_id' => $provenance['source_ids'][0] ?? '',
+      ]);
+      // Use the migration_id to build the actual entity messages URL.
+      $messagesUrl = Url::fromRoute('migrate_admin.migration_messages', [
+        'migration_id' => $provenance['migration_id'],
+      ]);
+      $rows[] = [t('Messages'), ['data' => ['#markup' => '<a href="' . $messagesUrl->toString() . '">' . t('View migration messages') . '</a>']]];
+    }
+    catch (\Exception $e) {
+      // Route may not exist.
+    }
+  }
+
   return [
     '#type' => 'details',
     '#title' => t('Migration provenance'),

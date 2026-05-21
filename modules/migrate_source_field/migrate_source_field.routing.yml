@@ -1,3 +1,11 @@
+migrate_source_field.entity_messages:
+  path: '/admin/structure/migrate-suite/entity/{entity_type}/{entity_id}/messages'
+  defaults:
+    _controller: '\Drupal\migrate_source_field\Controller\EntityMessagesController::messages'
+    _title: 'Entity Migration Messages'
+  requirements:
+    _permission: 'view migrate suite dashboard'
+
 migrate_source_field.source_links:
   path: '/admin/structure/migrate-suite/settings/source-links'
   defaults:
