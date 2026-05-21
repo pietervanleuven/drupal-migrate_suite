@@ -119,6 +119,67 @@ class MigrateMapQuery {
    *   An associative array with keys 'imported', 'needs_update', 'failed'
    *   and their respective counts.
    */
+  /**
+   * Counts imported items for a migration (status = 0).
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   *
+   * @return int
+   *   The imported item count.
+   */
+  public function countImportedItems(string $migrationId): int {
+    $table = $this->getMapTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return 0;
+    }
+
+    return (int) $this->database->select($table, 'map')
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_IMPORTED)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+
+  /**
+   * Lists items that would be rolled back (imported status).
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param int $limit
+   *   The number of items to return.
+   * @param int $offset
+   *   The offset for pagination.
+   *
+   * @return array
+   *   An array of map table rows with imported status.
+   */
+  public function listRollbackPreview(string $migrationId, int $limit = 50, int $offset = 0): array {
+    $table = $this->getMapTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return [];
+    }
+
+    return $this->database->select($table, 'map')
+      ->fields('map')
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_IMPORTED)
+      ->range($offset, $limit)
+      ->execute()
+      ->fetchAll();
+  }
+
+  /**
+   * Counts items by status for a migration.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   *
+   * @return array
+   *   An associative array with keys 'imported', 'needs_update', 'failed'
+   *   and their respective counts.
+   */
   public function countItemsByStatus(string $migrationId): array {
     $table = $this->getMapTableName($migrationId);
 

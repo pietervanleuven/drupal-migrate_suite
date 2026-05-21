@@ -13,6 +13,7 @@ use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
+use Drupal\migrate_suite\Service\MigrateMapQuery;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -44,6 +45,7 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
     protected readonly Connection $database,
     protected readonly AccountInterface $currentUser,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
+    protected readonly MigrateMapQuery $mapQuery,
   ) {}
 
   /**
@@ -60,6 +62,7 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
       $container->get('database'),
       $container->get('current_user'),
       $migrateAccessCheck,
+      $container->get('migrate_suite.map_query'),
     );
   }
 
@@ -145,7 +148,77 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
       ];
     }
 
+    // Add rollback preview showing entities that will be affected.
+    $preview = $this->buildRollbackPreview();
+    if ($preview) {
+      $form['rollback_preview'] = $preview;
+    }
+
     return parent::buildForm($form, $form_state);
+  }
+
+  /**
+   * Builds a preview table of entities that will be rolled back.
+   *
+   * @return array|null
+   *   A render array, or NULL if no preview available.
+   */
+  protected function buildRollbackPreview(): ?array {
+    $previewLimit = 20;
+    $totalCount = $this->mapQuery->countImportedItems($this->migrationId);
+
+    if ($totalCount === 0) {
+      return NULL;
+    }
+
+    $items = $this->mapQuery->listRollbackPreview($this->migrationId, $previewLimit);
+
+    $rows = [];
+    foreach ($items as $item) {
+      $sourceIds = [];
+      foreach ((array) $item as $key => $value) {
+        if (str_starts_with($key, 'sourceid') && $value !== NULL) {
+          $sourceIds[] = $value;
+        }
+      }
+
+      $destIds = [];
+      foreach ((array) $item as $key => $value) {
+        if (str_starts_with($key, 'destid') && $value !== NULL) {
+          $destIds[] = $value;
+        }
+      }
+
+      $rows[] = [
+        implode(', ', $sourceIds),
+        implode(', ', $destIds),
+      ];
+    }
+
+    $build = [
+      '#type' => 'details',
+      '#title' => $this->t('Items to be rolled back (@count total)', ['@count' => $totalCount]),
+      '#open' => $totalCount <= $previewLimit,
+      'table' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Source ID'),
+          $this->t('Destination ID'),
+        ],
+        '#rows' => $rows,
+        '#empty' => $this->t('No imported items found.'),
+      ],
+    ];
+
+    if ($totalCount > $previewLimit) {
+      $build['more'] = [
+        '#markup' => '<p>' . $this->t('... and @count more items.', [
+          '@count' => $totalCount - $previewLimit,
+        ]) . '</p>',
+      ];
+    }
+
+    return $build;
   }
 
   /**
