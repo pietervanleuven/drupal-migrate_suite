@@ -13,6 +13,7 @@ use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
+use Drupal\migrate_suite\Service\DeltaDetectionService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -44,6 +45,7 @@ class MigrationRunConfirmForm extends ConfirmFormBase {
     protected readonly Connection $database,
     protected readonly AccountInterface $currentUser,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
+    protected readonly ?DeltaDetectionService $deltaDetection,
   ) {}
 
   /**
@@ -60,6 +62,7 @@ class MigrationRunConfirmForm extends ConfirmFormBase {
       $container->get('database'),
       $container->get('current_user'),
       $migrateAccessCheck,
+      $container->get('migrate_suite.delta_detection'),
     );
   }
 
@@ -144,6 +147,36 @@ class MigrationRunConfirmForm extends ConfirmFormBase {
           '#items' => $dependencyWarnings,
         ],
       ];
+    }
+
+    // Delta detection info.
+    if ($this->deltaDetection !== NULL) {
+      $delta = $this->deltaDetection->detectDelta($migration_id);
+
+      if (!$delta['has_changes'] && $delta['current_hash'] !== NULL) {
+        $form['delta_info'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['messages', 'messages--status']],
+          '#markup' => $this->t('No source changes detected since the last run. The source data appears unchanged.'),
+        ];
+      }
+      elseif ($delta['has_changes'] && $delta['previous_hash'] !== NULL) {
+        $parts = [$this->t('Source changes detected since last run.')];
+        if ($delta['previous_count'] !== NULL && $delta['current_count'] !== NULL) {
+          $diff = $delta['current_count'] - $delta['previous_count'];
+          if ($diff > 0) {
+            $parts[] = $this->t('@count new source items.', ['@count' => $diff]);
+          }
+          elseif ($diff < 0) {
+            $parts[] = $this->t('@count fewer source items.', ['@count' => abs($diff)]);
+          }
+        }
+        $form['delta_info'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['messages', 'messages--warning']],
+          '#markup' => implode(' ', $parts),
+        ];
+      }
     }
 
     return parent::buildForm($form, $form_state);
