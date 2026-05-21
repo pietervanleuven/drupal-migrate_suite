@@ -4,17 +4,12 @@ Views integration for migration run history.
 
 ## Features
 
-- Exposes the `migrate_suite_run_log` table as a Views base table
-- All run log fields available as Views fields, filters, and sorts:
-  - Migration ID, operation (import/rollback), status, started/finished timestamps
-  - Item counts: processed, created, updated, failed, deleted
-  - Delta detection data: source count, source hash
-- **MigrationStatus** field plugin — renders status as a colored badge
-- **MigrationIdFilter** filter plugin — dropdown of all known migration plugin IDs
+- Adds **Migration Run Log** as a Views base table
+- Available fields: migration ID, operation (import/rollback), status, start/finish time, item counts, source fingerprint
+- Status field renders as a colored badge
+- Migration ID filter provides a dropdown of all known migrations
 
 ## Usage
-
-After enabling the module:
 
 1. Go to **Structure > Views > Add view**
 2. Select **Migration Run Log** as the view type
@@ -22,12 +17,8 @@ After enabling the module:
 
 Example use cases:
 - Run history report filtered by migration and date range
-- Failed run alert view showing only `status = failed`
+- Failed run alert view showing only failed imports
 - Migration activity dashboard with item counts over time
-
-## Scope
-
-This module exposes the `migrate_suite_run_log` table only. Dynamic `migrate_map_*` table support is not included due to the variable table naming — each migration creates its own map table at runtime.
 
 ## Dependencies
 
