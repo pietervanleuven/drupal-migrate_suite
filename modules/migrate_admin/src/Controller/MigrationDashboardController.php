@@ -14,6 +14,7 @@ use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_health\Service\MigrationHealthAnalyzer;
 use Drupal\migrate_permissions\MigrateAccessCheck;
+use Drupal\migrate_schedule\Service\ScheduleManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -39,6 +40,7 @@ class MigrationDashboardController extends ControllerBase {
     protected readonly ModuleHandlerInterface $moduleHandler,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
     protected readonly ?MigrationHealthAnalyzer $healthAnalyzer,
+    protected readonly ?ScheduleManager $scheduleManager,
   ) {}
 
   /**
@@ -53,6 +55,10 @@ class MigrationDashboardController extends ControllerBase {
       ? $container->get('migrate_health.analyzer')
       : NULL;
 
+    $scheduleManager = $moduleHandler->moduleExists('migrate_schedule')
+      ? $container->get('migrate_schedule.manager')
+      : NULL;
+
     return new static(
       $container->get('plugin.manager.migration'),
       $container->get('database'),
@@ -60,6 +66,7 @@ class MigrationDashboardController extends ControllerBase {
       $moduleHandler,
       $migrateAccessCheck,
       $healthAnalyzer,
+      $scheduleManager,
     );
   }
 
@@ -549,6 +556,13 @@ class MigrationDashboardController extends ControllerBase {
       $row[] = $data['imported_count'];
       $row[] = $data['failed_count'];
       $row[] = $lastRun;
+
+      $showSchedule = $this->scheduleManager !== NULL;
+      if ($showSchedule) {
+        $schedule = $this->scheduleManager->getSchedule($migrationId);
+        $row[] = $schedule ? ucfirst($schedule['interval']) : $this->t('Not scheduled');
+      }
+
       $row[] = ['data' => ['#markup' => $actionsMarkup]];
       $rows[] = $row;
     }
@@ -567,6 +581,11 @@ class MigrationDashboardController extends ControllerBase {
     $header[] = $this->t('Imported');
     $header[] = $this->t('Failed');
     $header[] = $this->t('Last run');
+
+    if ($this->scheduleManager !== NULL) {
+      $header[] = $this->t('Schedule');
+    }
+
     $header[] = $this->t('Actions');
 
     return [
