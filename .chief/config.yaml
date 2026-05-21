@@ -1,5 +1,0 @@
-worktree:
-    setup: ""
-onComplete:
-    push: false
-    createPR: true
