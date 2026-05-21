@@ -72,6 +72,83 @@ class MigrateMessageQuery {
    * @return array
    *   An array of message rows for the given source ID.
    */
+  /**
+   * Gets message counts grouped by severity level.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   *
+   * @return array
+   *   Associative array with keys 'error', 'warning', 'notice' and counts.
+   */
+  public function getSeverityCounts(string $migrationId): array {
+    $counts = ['error' => 0, 'warning' => 0, 'notice' => 0];
+    $table = $this->getMessageTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return $counts;
+    }
+
+    $results = $this->database->select($table, 'msg')
+      ->fields('msg', ['level'])
+      ->groupBy('level')
+      ->addExpression('COUNT(*)', 'count')
+      ->execute()
+      ->fetchAllKeyed();
+
+    $levelMap = [3 => 'error', 4 => 'warning', 6 => 'notice'];
+    foreach ($results as $level => $count) {
+      $key = $levelMap[(int) $level] ?? NULL;
+      if ($key !== NULL) {
+        $counts[$key] = (int) $count;
+      }
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Gets messages grouped by message text and severity.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param int $limit
+   *   The number of groups to return.
+   * @param int $offset
+   *   The offset for pagination.
+   *
+   * @return array
+   *   Array of objects with 'message', 'level', and 'count' properties.
+   */
+  public function getGroupedMessages(string $migrationId, int $limit = 50, int $offset = 0): array {
+    $table = $this->getMessageTableName($migrationId);
+
+    if (!$this->database->schema()->tableExists($table)) {
+      return [];
+    }
+
+    $query = $this->database->select($table, 'msg')
+      ->fields('msg', ['message', 'level'])
+      ->groupBy('message')
+      ->groupBy('level')
+      ->orderBy('count', 'DESC')
+      ->range($offset, $limit);
+    $query->addExpression('COUNT(*)', 'count');
+
+    return $query->execute()->fetchAll();
+  }
+
+  /**
+   * Fetches messages for a specific source ID within a migration.
+   *
+   * @param string $migrationId
+   *   The migration plugin ID.
+   * @param array $sourceIdValues
+   *   The source ID values.
+   *
+   * @return array
+   *   An array of message rows for the given source ID.
+   */
   public function getMessagesForSourceId(string $migrationId, array $sourceIdValues): array {
     $table = $this->getMessageTableName($migrationId);
 

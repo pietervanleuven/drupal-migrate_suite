@@ -11,6 +11,7 @@ use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
+use Drupal\migrate_suite\Service\MigrateMessageQuery;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -41,6 +42,7 @@ class MigrationDetailController extends ControllerBase {
     protected readonly Connection $database,
     protected readonly DateFormatterInterface $dateFormatter,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
+    protected readonly MigrateMessageQuery $messageQuery,
   ) {}
 
   /**
@@ -56,6 +58,7 @@ class MigrationDetailController extends ControllerBase {
       $container->get('database'),
       $container->get('date.formatter'),
       $migrateAccessCheck,
+      $container->get('migrate_suite.message_query'),
     );
   }
 
@@ -928,6 +931,7 @@ class MigrationDetailController extends ControllerBase {
    */
   protected function buildMessagesSection(string $migrationId, Request $request): array {
     $severityFilter = $request->query->get('severity', '');
+    $grouped = $request->query->get('group', '') === '1';
     $page = max(0, (int) $request->query->get('page', 0));
 
     $table = 'migrate_message_' . $migrationId;
@@ -937,22 +941,77 @@ class MigrationDetailController extends ControllerBase {
       ];
     }
 
+    $build = [];
+
+    // Severity summary badges.
+    $severityCounts = $this->messageQuery->getSeverityCounts($migrationId);
+    $build['severity_summary'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['migrate-severity-summary']],
+      'error' => [
+        '#markup' => '<span class="migrate-badge migrate-badge--error">' . $this->t('Errors: @count', ['@count' => $severityCounts['error']]) . '</span> ',
+      ],
+      'warning' => [
+        '#markup' => '<span class="migrate-badge migrate-badge--warning">' . $this->t('Warnings: @count', ['@count' => $severityCounts['warning']]) . '</span> ',
+      ],
+      'notice' => [
+        '#markup' => '<span class="migrate-badge migrate-badge--notice">' . $this->t('Notices: @count', ['@count' => $severityCounts['notice']]) . '</span>',
+      ],
+    ];
+
+    // Build severity filter.
+    $build['filters'] = $this->buildMessageFilterForm($migrationId, $severityFilter);
+
+    // View toggle.
+    $toggleUrl = Url::fromRoute('migrate_admin.migration_messages', ['migration_id' => $migrationId], [
+      'query' => ['group' => $grouped ? '0' : '1', 'severity' => $severityFilter],
+    ]);
+    $build['view_toggle'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      'link' => [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $grouped ? $this->t('Show individual messages') : $this->t('Group by message text'),
+        '#attributes' => ['href' => $toggleUrl->toString()],
+      ],
+    ];
+
+    if ($grouped) {
+      $build['table'] = $this->buildGroupedMessagesTable($migrationId, $page);
+    }
+    else {
+      $build['table'] = $this->buildIndividualMessagesTable($migrationId, $severityFilter, $page);
+    }
+
+    // Build pager.
+    $severityMap = ['notice' => 6, 'warning' => 4, 'error' => 3];
+    $countQuery = $this->database->select($table, 'msg');
+    if ($severityFilter !== '' && isset($severityMap[$severityFilter])) {
+      $countQuery->condition('level', $severityMap[$severityFilter]);
+    }
+    $total = (int) $countQuery->countQuery()->execute()->fetchField();
+
+    if ($total > self::ITEMS_PER_PAGE) {
+      $build['pager'] = $this->buildPager($migrationId, $page, $total, $request, 'messages');
+    }
+
+    return $build;
+  }
+
+  /**
+   * Builds the individual (non-grouped) messages table.
+   */
+  protected function buildIndividualMessagesTable(string $migrationId, string $severityFilter, int $page): array {
+    $table = 'migrate_message_' . $migrationId;
+
     $query = $this->database->select($table, 'msg')
       ->fields('msg');
 
-    // Apply severity filter.
-    $severityMap = [
-      'notice' => 6,
-      'warning' => 4,
-      'error' => 3,
-    ];
+    $severityMap = ['notice' => 6, 'warning' => 4, 'error' => 3];
     if ($severityFilter !== '' && isset($severityMap[$severityFilter])) {
       $query->condition('level', $severityMap[$severityFilter]);
     }
-
-    // Count total for pager.
-    $countQuery = clone $query;
-    $total = (int) $countQuery->countQuery()->execute()->fetchField();
 
     $query->range($page * self::ITEMS_PER_PAGE, self::ITEMS_PER_PAGE);
     $rows = $query->execute()->fetchAll();
@@ -966,11 +1025,6 @@ class MigrationDetailController extends ControllerBase {
       }
     }
 
-    // Build severity filter.
-    $build = [];
-    $build['filters'] = $this->buildMessageFilterForm($migrationId, $severityFilter);
-
-    // Build table rows.
     $tableRows = [];
     foreach ($rows as $row) {
       $sourceIds = [];
@@ -989,7 +1043,7 @@ class MigrationDetailController extends ControllerBase {
       ];
     }
 
-    $build['table'] = [
+    return [
       '#type' => 'table',
       '#header' => [
         $this->t('Source ID(s)'),
@@ -999,13 +1053,39 @@ class MigrationDetailController extends ControllerBase {
       '#rows' => $tableRows,
       '#empty' => $this->t('No messages found.'),
     ];
+  }
 
-    // Build pager.
-    if ($total > self::ITEMS_PER_PAGE) {
-      $build['pager'] = $this->buildPager($migrationId, $page, $total, $request, 'messages');
+  /**
+   * Builds the grouped messages table.
+   */
+  protected function buildGroupedMessagesTable(string $migrationId, int $page): array {
+    $groups = $this->messageQuery->getGroupedMessages(
+      $migrationId,
+      self::ITEMS_PER_PAGE,
+      $page * self::ITEMS_PER_PAGE,
+    );
+
+    $tableRows = [];
+    foreach ($groups as $group) {
+      $severityIcon = $this->getSeverityIcon((int) $group->level);
+
+      $tableRows[] = [
+        ['data' => ['#markup' => $severityIcon]],
+        $group->message ?? '',
+        $group->count,
+      ];
     }
 
-    return $build;
+    return [
+      '#type' => 'table',
+      '#header' => [
+        $this->t('Severity'),
+        $this->t('Message'),
+        $this->t('Count'),
+      ],
+      '#rows' => $tableRows,
+      '#empty' => $this->t('No messages found.'),
+    ];
   }
 
   /**
