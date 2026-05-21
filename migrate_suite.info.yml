@@ -1,7 +1,7 @@
 name: Migrate Suite
 type: module
 description: 'Administration dashboard for managing and monitoring Drupal migrations.'
-package: Migration
+package: Migrate Suite
 core_version_requirement: ^10.4 || ^11
 dependencies:
   - drupal:migrate
