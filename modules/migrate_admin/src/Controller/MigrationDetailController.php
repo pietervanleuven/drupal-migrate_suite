@@ -97,6 +97,12 @@ class MigrationDetailController extends ControllerBase {
     // Get last run stats.
     $lastRun = $this->getLastRunStats($migration_id);
 
+    // Get source count. This is only computed for a single migration here
+    // (unlike the dashboard listing, which never does this per row), so the
+    // cost of a remote source query is bounded to one migration per page
+    // load.
+    $sourceCount = $this->getSourceCount($migration);
+
     // Build summary section.
     $build = [];
 
@@ -111,6 +117,7 @@ class MigrationDetailController extends ControllerBase {
           [$this->t('Group'), $group],
           [$this->t('Source plugin'), $sourcePlugin],
           [$this->t('Destination plugin'), $destinationPlugin],
+          [$this->t('Source count'), $sourceCount],
           [$this->t('Status'), $this->buildStatusBadge($status)],
           [$this->t('Last run'), $lastRun ? $this->buildLastRunSummary($lastRun) : $this->t('Never')],
         ],
@@ -127,8 +134,8 @@ class MigrationDetailController extends ControllerBase {
       'library' => ['migrate_admin/dashboard'],
     ];
     $build['#cache'] = [
-      'contexts' => ['url.query_args', 'url.path'],
-      'tags' => ['migration_plugins'],
+      'contexts' => ['url.query_args', 'url.path', 'user.permissions'],
+      'tags' => ['migration_plugins', 'migrate_suite:run:' . $migration_id],
     ];
 
     return $build;
@@ -161,8 +168,8 @@ class MigrationDetailController extends ControllerBase {
       'library' => ['migrate_admin/dashboard'],
     ];
     $build['#cache'] = [
-      'contexts' => ['url.query_args', 'url.path'],
-      'tags' => ['migration_plugins'],
+      'contexts' => ['url.query_args', 'url.path', 'user.permissions'],
+      'tags' => ['migration_plugins', 'migrate_suite:run:' . $migration_id],
     ];
 
     return $build;
@@ -195,8 +202,8 @@ class MigrationDetailController extends ControllerBase {
       'library' => ['migrate_admin/dashboard'],
     ];
     $build['#cache'] = [
-      'contexts' => ['url.query_args', 'url.path'],
-      'tags' => ['migration_plugins'],
+      'contexts' => ['url.query_args', 'url.path', 'user.permissions'],
+      'tags' => ['migration_plugins', 'migrate_suite:run:' . $migration_id],
     ];
 
     return $build;
@@ -225,8 +232,8 @@ class MigrationDetailController extends ControllerBase {
       'library' => ['migrate_admin/dashboard'],
     ];
     $build['#cache'] = [
-      'contexts' => ['url.query_args', 'url.path'],
-      'tags' => ['migration_plugins'],
+      'contexts' => ['url.query_args', 'url.path', 'user.permissions'],
+      'tags' => ['migration_plugins', 'migrate_suite:run:' . $migration_id],
     ];
 
     return $build;
@@ -711,6 +718,30 @@ class MigrationDetailController extends ControllerBase {
     }
 
     return $migrationStatus;
+  }
+
+  /**
+   * Gets the source count for a migration.
+   *
+   * This executes a count() query against the migration's source plugin,
+   * which may hit a remote database. It is only ever called for a single
+   * migration on this page, never in a per-row listing loop.
+   *
+   * @param \Drupal\migrate\Plugin\MigrationInterface $migration
+   *   The migration plugin instance.
+   *
+   * @return int|string
+   *   The source count or 'N/A' if unavailable.
+   */
+  protected function getSourceCount(MigrationInterface $migration): int|string {
+    try {
+      $source = $migration->getSourcePlugin();
+      $count = $source->count();
+      return $count === -1 ? 'N/A' : $count;
+    }
+    catch (\Exception $e) {
+      return 'N/A';
+    }
   }
 
   /**

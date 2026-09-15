@@ -26,6 +26,11 @@ use Symfony\Component\HttpFoundation\Request;
 class MigrationDashboardController extends ControllerBase {
 
   /**
+   * Number of migrations listed per page.
+   */
+  protected const ITEMS_PER_PAGE = 50;
+
+  /**
    * Constructs a MigrationDashboardController object.
    *
    * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
@@ -99,10 +104,16 @@ class MigrationDashboardController extends ControllerBase {
     $search = $request->query->get('search', '');
     $statusFilter = $request->query->get('status', '');
     $groupFilter = $request->query->get('group', '');
+    $page = max(0, (int) $request->query->get('page', 0));
 
-    $migrations = $this->migrationPluginManager->createInstances([]);
+    // Use the (cheap) plugin definitions rather than instantiating every
+    // migration plugin up front: with migrate_drupal enabled there can be
+    // hundreds of migrations, and createInstances() for all of them
+    // (followed by a source count query each) is what makes this page
+    // unusable at scale.
+    $definitions = $this->migrationPluginManager->getDefinitions();
 
-    if (empty($migrations)) {
+    if (empty($definitions)) {
       return [
         '#markup' => '<p>' . $this->t('No migrations are currently configured. Configure migrations using migration YAML files or Drush commands.') . '</p>',
       ];
@@ -110,19 +121,21 @@ class MigrationDashboardController extends ControllerBase {
 
     // Collect all groups for the filter dropdown.
     $allGroups = [];
-    $groupedMigrations = [];
+    // IDs that pass the cheap (definition-only) filters: permission, search,
+    // group. Status still needs an instantiated migration to determine, so
+    // it is applied separately below.
+    $candidateIds = [];
 
     $account = $this->currentUser();
     $permissionsModuleEnabled = $this->migrateAccessCheck !== NULL;
 
-    foreach ($migrations as $migrationId => $migration) {
+    foreach ($definitions as $migrationId => $definition) {
       // Apply per-migration view permission filter.
       if ($permissionsModuleEnabled && !$this->migrateAccessCheck->canViewMigration($account, $migrationId)) {
         continue;
       }
 
-      $label = $migration->label() ?: $migrationId;
-      $definition = $migration->getPluginDefinition();
+      $label = $definition['label'] ?? $migrationId;
       $group = $definition['migration_group'] ?? 'default';
       $allGroups[$group] = $group;
 
@@ -131,24 +144,54 @@ class MigrationDashboardController extends ControllerBase {
         continue;
       }
 
-      // Get migration status.
-      $status = $this->getMigrationStatus($migration);
-
-      // Apply status filter.
-      if ($statusFilter !== '' && $status !== $statusFilter) {
-        continue;
-      }
-
       // Apply group filter.
       if ($groupFilter !== '' && $group !== $groupFilter) {
         continue;
       }
 
+      $candidateIds[] = $migrationId;
+    }
+
+    ksort($allGroups);
+
+    // Determining status requires an instantiated migration plugin. Only pay
+    // that cost for every candidate when the caller explicitly filters by
+    // status; otherwise it is deferred until after pagination below so only
+    // the migrations actually rendered on this page get instantiated.
+    if ($statusFilter !== '') {
+      $matchingIds = [];
+      foreach ($this->migrationPluginManager->createInstances($candidateIds) as $migrationId => $migration) {
+        if ($this->getMigrationStatus($migration) === $statusFilter) {
+          $matchingIds[] = $migrationId;
+        }
+      }
+    }
+    else {
+      $matchingIds = $candidateIds;
+    }
+
+    $totalMatching = count($matchingIds);
+    $pageIds = array_slice($matchingIds, $page * self::ITEMS_PER_PAGE, self::ITEMS_PER_PAGE);
+
+    // Only the migrations on the current page are instantiated, and only
+    // their map/run-log data is queried below, bounding the page cost
+    // regardless of how many migrations are configured overall.
+    $migrations = $this->migrationPluginManager->createInstances($pageIds);
+
+    $groupedMigrations = [];
+    foreach ($pageIds as $migrationId) {
+      if (!isset($migrations[$migrationId])) {
+        continue;
+      }
+      $migration = $migrations[$migrationId];
+      $definition = $migration->getPluginDefinition();
+      $label = $definition['label'] ?? $migrationId;
+      $group = $definition['migration_group'] ?? 'default';
+
+      $status = $this->getMigrationStatus($migration);
+
       // Get counts from map table.
       $counts = $this->getItemCounts($migrationId);
-
-      // Get source count.
-      $sourceCount = $this->getSourceCount($migration);
 
       // Get last run timestamp.
       $lastRun = $this->getLastRunTimestamp($migrationId);
@@ -169,7 +212,6 @@ class MigrationDashboardController extends ControllerBase {
         'label' => $label,
         'group' => $group,
         'status' => $status,
-        'source_count' => $sourceCount,
         'imported_count' => $counts['imported'],
         'failed_count' => $counts['failed'],
         'last_run' => $lastRun,
@@ -177,8 +219,6 @@ class MigrationDashboardController extends ControllerBase {
         'can_rollback' => $canRollback,
       ];
     }
-
-    ksort($allGroups);
 
     // Compute health statuses if migrate_health is enabled.
     $healthModuleEnabled = $this->healthAnalyzer !== NULL;
@@ -227,6 +267,11 @@ class MigrationDashboardController extends ControllerBase {
       }
     }
 
+    // Build pager.
+    if ($totalMatching > self::ITEMS_PER_PAGE) {
+      $build['pager'] = $this->buildDashboardPager($page, $totalMatching, $request);
+    }
+
     $libraries = ['migrate_admin/dashboard'];
     if ($healthModuleEnabled) {
       $libraries[] = 'migrate_health/health';
@@ -235,11 +280,72 @@ class MigrationDashboardController extends ControllerBase {
       'library' => $libraries,
     ];
     $build['#cache'] = [
-      'contexts' => ['url.query_args'],
-      'tags' => ['migration_plugins'],
+      'contexts' => ['url.query_args', 'user.permissions'],
+      'tags' => ['migration_plugins', 'migrate_suite:runs'],
     ];
 
     return $build;
+  }
+
+  /**
+   * Builds a simple pager for the migration listing.
+   *
+   * @param int $currentPage
+   *   The current page number (0-indexed).
+   * @param int $total
+   *   The total number of matching migrations.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   *
+   * @return array
+   *   A render array for the pager.
+   */
+  protected function buildDashboardPager(int $currentPage, int $total, Request $request): array {
+    $totalPages = (int) ceil($total / self::ITEMS_PER_PAGE);
+    $queryParams = $request->query->all();
+    $links = [];
+
+    if ($currentPage > 0) {
+      $queryParams['page'] = $currentPage - 1;
+      $links['previous'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Previous'),
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.dashboard', [], ['query' => $queryParams])->toString(),
+          'class' => ['button'],
+        ],
+      ];
+    }
+
+    $links['info'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'span',
+      '#value' => $this->t('Page @current of @total (@items migrations)', [
+        '@current' => $currentPage + 1,
+        '@total' => $totalPages,
+        '@items' => $total,
+      ]),
+      '#attributes' => ['class' => ['migrate-pager-info']],
+    ];
+
+    if ($currentPage < $totalPages - 1) {
+      $queryParams['page'] = $currentPage + 1;
+      $links['next'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'a',
+        '#value' => $this->t('Next'),
+        '#attributes' => [
+          'href' => Url::fromRoute('migrate_admin.dashboard', [], ['query' => $queryParams])->toString(),
+          'class' => ['button'],
+        ],
+      ];
+    }
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['migrate-pager']],
+    ] + $links;
   }
 
   /**
@@ -329,26 +435,6 @@ class MigrationDashboardController extends ControllerBase {
     }
 
     return $counts;
-  }
-
-  /**
-   * Gets the source count for a migration.
-   *
-   * @param \Drupal\migrate\Plugin\MigrationInterface $migration
-   *   The migration plugin instance.
-   *
-   * @return int|string
-   *   The source count or 'N/A' if unavailable.
-   */
-  protected function getSourceCount($migration): int|string {
-    try {
-      $source = $migration->getSourcePlugin();
-      $count = $source->count();
-      return $count === -1 ? 'N/A' : $count;
-    }
-    catch (\Exception $e) {
-      return 'N/A';
-    }
   }
 
   /**
@@ -565,7 +651,6 @@ class MigrationDashboardController extends ControllerBase {
         $row[] = $this->buildHealthBadge($data['health'] ?? MigrationHealthAnalyzer::HEALTHY);
       }
 
-      $row[] = $data['source_count'];
       $row[] = $data['imported_count'];
       $row[] = $data['failed_count'];
       $row[] = $lastRun;
@@ -590,7 +675,6 @@ class MigrationDashboardController extends ControllerBase {
       $header[] = $this->t('Health');
     }
 
-    $header[] = $this->t('Source count');
     $header[] = $this->t('Imported');
     $header[] = $this->t('Failed');
     $header[] = $this->t('Last run');
