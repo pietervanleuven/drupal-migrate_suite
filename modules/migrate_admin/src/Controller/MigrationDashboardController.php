@@ -10,6 +10,7 @@ use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
+use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_health\Service\MigrationHealthAnalyzer;
@@ -306,18 +307,16 @@ class MigrationDashboardController extends ControllerBase {
       return $counts;
     }
 
-    $results = $this->database->select($table, 'map')
+    $query = $this->database->select($table, 'map')
       ->fields('map', ['source_row_status'])
-      ->groupBy('source_row_status')
-      ->addExpression('COUNT(*)', 'count')
-      ->execute()
-      ->fetchAllKeyed();
+      ->groupBy('source_row_status');
+    $query->addExpression('COUNT(*)', 'count');
+    $results = $query->execute()->fetchAllKeyed();
 
-    // Status constants: 0 = imported, 1 = needs_update, 2 = failed.
     $statusMap = [
-      '0' => 'imported',
-      '1' => 'needs_update',
-      '2' => 'failed',
+      (string) MigrateIdMapInterface::STATUS_IMPORTED => 'imported',
+      (string) MigrateIdMapInterface::STATUS_NEEDS_UPDATE => 'needs_update',
+      (string) MigrateIdMapInterface::STATUS_FAILED => 'failed',
     ];
 
     foreach ($results as $status => $count) {

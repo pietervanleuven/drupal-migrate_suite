@@ -8,17 +8,17 @@
 }
 
 .migrate-matrix-subheader td {
-  text-align: center;
-  font-weight: 600;
-  font-size: 0.85em;
-  color: #555;
   padding: 4px 8px;
+  text-align: center;
+  color: #555;
+  font-size: 0.85em;
+  font-weight: 600;
 }
 
 .migrate-matrix-group-header {
+  padding: 8px 12px;
   background-color: #f0f0f0;
   font-weight: 700;
-  padding: 8px 12px;
 }
 
 .migrate-matrix-cell {

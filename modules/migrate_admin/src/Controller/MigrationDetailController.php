@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Url;
+use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
@@ -379,7 +380,7 @@ class MigrationDetailController extends ControllerBase {
     }
 
     return (int) $this->database->select($table, 'map')
-      ->condition('source_row_status', 2)
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_FAILED)
       ->countQuery()
       ->execute()
       ->fetchField();
@@ -407,10 +408,9 @@ class MigrationDetailController extends ControllerBase {
       ];
     }
 
-    // Query for failed items (source_row_status = 2).
     $query = $this->database->select($mapTable, 'map')
       ->fields('map')
-      ->condition('source_row_status', 2);
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_FAILED);
 
     // Detect source ID columns.
     $sourceIdCols = [];
@@ -825,9 +825,9 @@ class MigrationDetailController extends ControllerBase {
 
     // Apply status filter.
     $statusMap = [
-      'imported' => 0,
-      'needs_update' => 1,
-      'failed' => 2,
+      'imported' => MigrateIdMapInterface::STATUS_IMPORTED,
+      'needs_update' => MigrateIdMapInterface::STATUS_NEEDS_UPDATE,
+      'failed' => MigrateIdMapInterface::STATUS_FAILED,
     ];
     if ($statusFilter !== '' && isset($statusMap[$statusFilter])) {
       $query->condition('source_row_status', $statusMap[$statusFilter]);
@@ -1423,9 +1423,10 @@ class MigrationDetailController extends ControllerBase {
    */
   protected function getRowStatusLabel(int $status): string {
     $labels = [
-      0 => (string) $this->t('Imported'),
-      1 => (string) $this->t('Needs update'),
-      2 => (string) $this->t('Failed'),
+      MigrateIdMapInterface::STATUS_IMPORTED => (string) $this->t('Imported'),
+      MigrateIdMapInterface::STATUS_NEEDS_UPDATE => (string) $this->t('Needs update'),
+      MigrateIdMapInterface::STATUS_IGNORED => (string) $this->t('Ignored'),
+      MigrateIdMapInterface::STATUS_FAILED => (string) $this->t('Failed'),
     ];
 
     return $labels[$status] ?? (string) $this->t('Unknown');

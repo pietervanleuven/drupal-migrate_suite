@@ -3,6 +3,6 @@ parameters:
   paths:
     - .
   excludePaths:
-    - vendor
+    - vendor (?)
   drupal:
     drupal_root: ../../../

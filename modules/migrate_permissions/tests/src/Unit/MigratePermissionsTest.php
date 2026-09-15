@@ -28,7 +28,9 @@ class MigratePermissionsTest extends UnitTestCase {
       ->with([])
       ->willReturn(['my_articles' => $migration]);
 
-    $permissions = (new MigratePermissions($manager))->permissions();
+    $service = new MigratePermissions($manager);
+    $service->setStringTranslation($this->getStringTranslationStub());
+    $permissions = $service->permissions();
 
     $this->assertArrayHasKey('view migration my_articles', $permissions);
     $this->assertArrayHasKey('run migration my_articles', $permissions);
@@ -48,7 +50,9 @@ class MigratePermissionsTest extends UnitTestCase {
       ->with([])
       ->willReturn(['My.Group.Articles' => $migration]);
 
-    $permissions = (new MigratePermissions($manager))->permissions();
+    $service = new MigratePermissions($manager);
+    $service->setStringTranslation($this->getStringTranslationStub());
+    $permissions = $service->permissions();
 
     $this->assertArrayHasKey('view migration my_group_articles', $permissions);
     $this->assertArrayHasKey('run migration my_group_articles', $permissions);
@@ -63,7 +67,9 @@ class MigratePermissionsTest extends UnitTestCase {
     $manager->method('createInstances')
       ->willThrowException(new \Exception('Plugin error'));
 
-    $permissions = (new MigratePermissions($manager))->permissions();
+    $service = new MigratePermissions($manager);
+    $service->setStringTranslation($this->getStringTranslationStub());
+    $permissions = $service->permissions();
 
     $this->assertEmpty($permissions);
   }
@@ -80,7 +86,9 @@ class MigratePermissionsTest extends UnitTestCase {
       ->with([])
       ->willReturn(['my_articles' => $migration]);
 
-    $permissions = (new MigratePermissions($manager))->permissions();
+    $service = new MigratePermissions($manager);
+    $service->setStringTranslation($this->getStringTranslationStub());
+    $permissions = $service->permissions();
 
     // When label is empty, the migration ID is used in the title.
     $title = (string) $permissions['view migration my_articles']['title'];

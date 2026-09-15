@@ -10,6 +10,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
+use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
@@ -146,8 +147,8 @@ class FailedItemsResetForm extends ConfirmFormBase {
 
     if ($this->database->schema()->tableExists($mapTable)) {
       $updated = $this->database->update($mapTable)
-        ->fields(['source_row_status' => 0])
-        ->condition('source_row_status', 2)
+        ->fields(['source_row_status' => MigrateIdMapInterface::STATUS_IMPORTED])
+        ->condition('source_row_status', MigrateIdMapInterface::STATUS_FAILED)
         ->execute();
 
       $this->messenger()->addStatus($this->t('Reset @count failed items to "imported" status for the %migration migration.', [
@@ -191,7 +192,7 @@ class FailedItemsResetForm extends ConfirmFormBase {
     }
 
     return (int) $this->database->select($mapTable, 'map')
-      ->condition('source_row_status', 2)
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_FAILED)
       ->countQuery()
       ->execute()
       ->fetchField();

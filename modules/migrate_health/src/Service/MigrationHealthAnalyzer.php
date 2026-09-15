@@ -7,6 +7,7 @@ namespace Drupal\migrate_health\Service;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 
 /**
@@ -135,9 +136,8 @@ class MigrationHealthAnalyzer {
       return FALSE;
     }
 
-    // Status 2 = MigrateIdMapInterface::STATUS_FAILED.
     $failed = (int) $this->database->select($table, 'map')
-      ->condition('source_row_status', 2)
+      ->condition('source_row_status', MigrateIdMapInterface::STATUS_FAILED)
       ->countQuery()
       ->execute()
       ->fetchField();

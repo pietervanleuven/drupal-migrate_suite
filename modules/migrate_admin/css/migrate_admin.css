@@ -1,10 +1,10 @@
 .badge {
   display: inline-block;
   padding: 2px 8px;
+  color: #fff;
   border-radius: 3px;
   font-size: 0.85em;
   font-weight: 600;
-  color: #fff;
 }
 
 .badge.color--success {
@@ -16,8 +16,8 @@
 }
 
 .badge.color--warning {
-  background-color: #ffc107;
   color: #333;
+  background-color: #ffc107;
 }
 
 .badge.color--error {
@@ -26,10 +26,10 @@
 
 .migrate-dashboard-filter-form {
   display: flex;
-  gap: 1em;
+  flex-wrap: wrap;
   align-items: flex-end;
   margin-bottom: 1.5em;
-  flex-wrap: wrap;
+  gap: 1em;
 }
 
 .migrate-dashboard-filter-form .form-item {
@@ -51,12 +51,12 @@
 
 .migrate-tab {
   display: inline-block;
+  margin-bottom: -2px;
   padding: 0.5em 1.5em;
   text-decoration: none;
   color: #333;
   border: 1px solid transparent;
   border-bottom: none;
-  margin-bottom: -2px;
 }
 
 .migrate-tab:hover {
@@ -64,9 +64,9 @@
 }
 
 .migrate-tab--active {
-  background-color: #fff;
   border-color: #ccc;
   border-bottom-color: #fff;
+  background-color: #fff;
   font-weight: 600;
 }
 
@@ -78,8 +78,8 @@
 }
 
 .migrate-pager-info {
-  font-size: 0.9em;
   color: #666;
+  font-size: 0.9em;
 }
 
 .migrate-tab--has-badge {

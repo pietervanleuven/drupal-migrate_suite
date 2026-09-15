@@ -186,12 +186,11 @@ class MigrateMapQuery {
       return $counts;
     }
 
-    $results = $this->database->select($table, 'map')
+    $query = $this->database->select($table, 'map')
       ->fields('map', ['source_row_status'])
-      ->groupBy('source_row_status')
-      ->addExpression('COUNT(*)', 'count')
-      ->execute()
-      ->fetchAllKeyed();
+      ->groupBy('source_row_status');
+    $query->addExpression('COUNT(*)', 'count');
+    $results = $query->execute()->fetchAllKeyed();
 
     $statusMap = [
       (string) MigrateIdMapInterface::STATUS_IMPORTED => 'imported',

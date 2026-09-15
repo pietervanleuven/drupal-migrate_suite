@@ -73,7 +73,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
    */
   public function testPreImportCreatesRunLogEntry(): void {
     $migration = $this->createMockMigration('test_migration');
-    $event = new MigrateImportEvent($migration);
+    $event = new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class));
 
     $this->runLogger->onPreImport($event);
 
@@ -93,8 +93,8 @@ class MigrateRunLoggerTest extends KernelTestBase {
    */
   public function testPostImportCompletesRunLog(): void {
     $migration = $this->createMockMigration('test_migration');
-    $preEvent = new MigrateImportEvent($migration);
-    $postEvent = new MigrateImportEvent($migration);
+    $preEvent = new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class));
+    $postEvent = new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class));
 
     $this->runLogger->onPreImport($preEvent);
     $this->runLogger->onPostImport($postEvent);
@@ -118,7 +118,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
     $migration = $this->createMockMigration('test_migration');
 
     // Start the import.
-    $this->runLogger->onPreImport(new MigrateImportEvent($migration));
+    $this->runLogger->onPreImport(new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class)));
 
     // Simulate processing 2 rows (new creates).
     for ($i = 0; $i < 2; $i++) {
@@ -136,7 +136,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
     }
 
     // End the import.
-    $this->runLogger->onPostImport(new MigrateImportEvent($migration));
+    $this->runLogger->onPostImport(new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class)));
 
     $log = $this->database->select('migrate_suite_run_log', 'r')
       ->fields('r')
@@ -157,7 +157,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
   public function testFailedRowsSetsFailedStatus(): void {
     $migration = $this->createMockMigration('test_migration');
 
-    $this->runLogger->onPreImport(new MigrateImportEvent($migration));
+    $this->runLogger->onPreImport(new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class)));
 
     // Simulate a failed row.
     $row = $this->createMock(Row::class);
@@ -171,7 +171,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
     $this->runLogger->onPreRowSave($preRowEvent);
     $this->runLogger->onPostRowSave($postRowEvent);
 
-    $this->runLogger->onPostImport(new MigrateImportEvent($migration));
+    $this->runLogger->onPostImport(new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class)));
 
     $log = $this->database->select('migrate_suite_run_log', 'r')
       ->fields('r')
@@ -188,7 +188,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
    */
   public function testPostImportWithoutPreImportDoesNothing(): void {
     $migration = $this->createMockMigration('test_migration');
-    $event = new MigrateImportEvent($migration);
+    $event = new MigrateImportEvent($migration, $this->createMock(MigrateMessageInterface::class));
 
     // Call post without pre — should not throw or insert anything.
     $this->runLogger->onPostImport($event);

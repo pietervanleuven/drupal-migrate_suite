@@ -81,12 +81,11 @@ class MigrateMessageQuery {
       return $counts;
     }
 
-    $results = $this->database->select($table, 'msg')
+    $query = $this->database->select($table, 'msg')
       ->fields('msg', ['level'])
-      ->groupBy('level')
-      ->addExpression('COUNT(*)', 'count')
-      ->execute()
-      ->fetchAllKeyed();
+      ->groupBy('level');
+    $query->addExpression('COUNT(*)', 'count');
+    $results = $query->execute()->fetchAllKeyed();
 
     $levelMap = [3 => 'error', 4 => 'warning', 6 => 'notice'];
     foreach ($results as $level => $count) {
