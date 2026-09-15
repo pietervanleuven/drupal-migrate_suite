@@ -78,19 +78,16 @@ class ScheduleManager {
    * @param string $migrationId
    *   The migration plugin ID.
    * @param string $interval
-   *   The interval (disabled, hourly, daily, weekly, custom).
-   * @param string $cronExpression
-   *   The cron expression for custom intervals.
+   *   The interval (disabled, hourly, daily, weekly).
    * @param bool $skipIfNoChanges
    *   Whether to skip if no source changes detected.
    */
-  public function setSchedule(string $migrationId, string $interval, string $cronExpression = '', bool $skipIfNoChanges = FALSE): void {
+  public function setSchedule(string $migrationId, string $interval, bool $skipIfNoChanges = FALSE): void {
     $config = $this->configFactory->getEditable('migrate_schedule.settings');
     $schedules = $config->get('schedules') ?? [];
 
     $schedules[$migrationId] = [
       'interval' => $interval,
-      'cron_expression' => $cronExpression,
       'skip_if_no_changes' => $skipIfNoChanges,
     ];
 

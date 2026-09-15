@@ -79,8 +79,16 @@ class ScheduleSettingsForm extends ConfigFormBase {
       ],
     ];
 
+    // Migration IDs can contain characters (such as '.' and ':') that are
+    // not safe to use as form array keys, and are not necessarily unique
+    // once naively sanitized (e.g. 'a.b' and 'a__b' would collide). Map each
+    // migration to an unambiguous generated key instead, and stash the
+    // mapping on the form so submitForm() can resolve the real IDs back.
+    $migrationKeys = [];
+
     foreach ($migrations as $migrationId => $migration) {
-      $safeKey = str_replace('.', '__', $migrationId);
+      $safeKey = 'm' . md5($migrationId);
+      $migrationKeys[$safeKey] = $migrationId;
       $schedule = $schedules[$migrationId] ?? [];
 
       $form['schedules'][$safeKey]['label'] = [
@@ -99,6 +107,8 @@ class ScheduleSettingsForm extends ConfigFormBase {
       ];
     }
 
+    $form['#migration_keys'] = $migrationKeys;
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -109,22 +119,17 @@ class ScheduleSettingsForm extends ConfigFormBase {
     $scheduleValues = $form_state->getValue('schedules') ?? [];
     $schedules = [];
 
-    try {
-      $migrations = $this->migrationPluginManager->createInstances([]);
-    }
-    catch (\Exception $e) {
-      $migrations = [];
-    }
+    // Resolve the real migration IDs from the same key mapping that
+    // buildForm() generated, rather than trying to reverse the safe key.
+    $migrationKeys = $form['#migration_keys'] ?? [];
 
-    foreach ($migrations as $migrationId => $migration) {
-      $safeKey = str_replace('.', '__', $migrationId);
+    foreach ($migrationKeys as $safeKey => $migrationId) {
       $row = $scheduleValues[$safeKey] ?? [];
 
       $interval = $row['interval'] ?? 'disabled';
       if ($interval !== 'disabled') {
         $schedules[$migrationId] = [
           'interval' => $interval,
-          'cron_expression' => '',
           'skip_if_no_changes' => !empty($row['skip_if_no_changes']),
         ];
       }

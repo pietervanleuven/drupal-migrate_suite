@@ -11,10 +11,7 @@ migrate_schedule.settings:
         mapping:
           interval:
             type: string
-            label: 'Schedule interval (disabled, hourly, daily, weekly, custom)'
-          cron_expression:
-            type: string
-            label: 'Custom cron expression'
+            label: 'Schedule interval (disabled, hourly, daily, weekly)'
           skip_if_no_changes:
             type: boolean
             label: 'Skip import if no source changes detected'
