@@ -144,7 +144,9 @@ logging. Functional tests for the admin UI are not written yet.
 
 The module is checked against the `Drupal` and `DrupalPractice` sniffs
 (`phpcs.xml.dist`) and PHPStan level 2 (`phpstan.neon`). Both run on every push
-through `.gitlab-ci.yml`, which inherits drupal.org's shared pipeline.
+through `.gitlab-ci.yml`, which inherits drupal.org's shared pipeline — that
+also runs PHPUnit, ESLint, Stylelint against core's property order, and CSpell
+against the project dictionary in `.cspell-project-words.txt`.
 
 PHPCS needs no Drupal codebase, so it can run straight from the module
 directory:

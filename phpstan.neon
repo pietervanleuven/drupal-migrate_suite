@@ -10,9 +10,3 @@ parameters:
     # Drupal's ContainerInjectionInterface / ContainerFactoryPluginInterface
     # contract is `new static()` in create(); core does the same throughout.
     - identifier: new.static
-    # Procedural hook implementations cannot take injected services.
-    -
-      identifier: globalDrupalDependencyInjection.useDependencyInjection
-      paths:
-        - '*.module'
-        - '*.install'

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\migrate_schedule\Plugin\QueueWorker;
 
+use Drupal\Core\Database\Connection;
+use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\migrate\MigrateExecutable;
@@ -24,13 +26,35 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {
 
+  /**
+   * Constructs a MigrationRunWorker object.
+   *
+   * @param array $configuration
+   *   The plugin configuration.
+   * @param string $plugin_id
+   *   The plugin ID.
+   * @param mixed $plugin_definition
+   *   The plugin definition.
+   * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
+   *   The migration plugin manager.
+   * @param \Drupal\migrate_suite\Service\DeltaDetectionService|null $deltaDetection
+   *   The delta detection service, or NULL if it is unavailable.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
+   * @param \Drupal\Core\Database\Connection $database
+   *   The database connection.
+   * @param \Drupal\Core\Logger\LoggerChannelFactoryInterface $loggerFactory
+   *   The logger channel factory.
+   */
   public function __construct(
     array $configuration,
     $plugin_id,
     $plugin_definition,
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly ?DeltaDetectionService $deltaDetection,
-    protected readonly MigrateTableNameResolver $tableNameResolver,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected ?DeltaDetectionService $deltaDetection,
+    protected MigrateTableNameResolver $tableNameResolver,
+    protected Connection $database,
+    protected LoggerChannelFactoryInterface $loggerFactory,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
@@ -46,6 +70,8 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
       $container->get('plugin.manager.migration'),
       $container->get('migrate_suite.delta_detection'),
       $container->get('migrate_suite.table_name_resolver'),
+      $container->get('database'),
+      $container->get('logger.factory'),
     );
   }
 
@@ -64,7 +90,7 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
     if ($skipIfNoChanges && $this->deltaDetection !== NULL) {
       $delta = $this->deltaDetection->detectDelta($migrationId);
       if (!$delta['has_changes'] && $delta['current_hash'] !== NULL) {
-        \Drupal::logger('migrate_schedule')->info('Skipping scheduled run for @migration: no source changes detected.', [
+        $this->loggerFactory->get('migrate_schedule')->info('Skipping scheduled run for @migration: no source changes detected.', [
           '@migration' => $migrationId,
         ]);
         return;
@@ -76,7 +102,7 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
       $migration = $migrations[$migrationId] ?? NULL;
     }
     catch (\Exception $e) {
-      \Drupal::logger('migrate_schedule')->error('Failed to load migration @id: @error', [
+      $this->loggerFactory->get('migrate_schedule')->error('Failed to load migration @id: @error', [
         '@id' => $migrationId,
         '@error' => $e->getMessage(),
       ]);
@@ -92,8 +118,8 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
     $requirements = $definition['migration_dependencies']['required'] ?? [];
     foreach ($requirements as $requiredId) {
       $mapTable = $this->tableNameResolver->getMapTableName($requiredId);
-      if (!\Drupal::database()->schema()->tableExists($mapTable)) {
-        \Drupal::logger('migrate_schedule')->warning('Skipping scheduled run for @migration: dependency @dep has not been run.', [
+      if (!$this->database->schema()->tableExists($mapTable)) {
+        $this->loggerFactory->get('migrate_schedule')->warning('Skipping scheduled run for @migration: dependency @dep has not been run.', [
           '@migration' => $migrationId,
           '@dep' => $requiredId,
         ]);

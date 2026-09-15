@@ -25,11 +25,14 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   comparisons now use the core constants, and the row status label gained the
   missing "Ignored" entry.
 
-- **Admin forms held readonly promoted properties.** `FormBase` uses
+- **Admin forms and the scheduled-run queue worker held readonly promoted
+  properties.** `FormBase` uses
   `DependencySerializationTrait`, whose `__wakeup()` cannot reinitialize a
-  readonly property declared in a subclass on PHP below 8.4. Every form in the
-  suite declared its injected services that way, so restoring a cached form
-  would fail. The `readonly` modifier is gone from all 28 of them.
+  readonly property declared in a subclass on PHP below 8.4 — and `PluginBase`
+  does the same for queue workers. Every form in the suite, plus
+  `MigrationRunWorker`, declared its injected services that way, so restoring a
+  cached form or a serialized worker would fail. The `readonly` modifier is gone
+  from all 31 of them.
 
 - **`migrate_source_field_form_node_form_alter()` assumed an entity form.**
   `FormStateInterface::getFormObject()` returns a `FormInterface`, which has no
@@ -89,6 +92,9 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   calling `\Drupal::` and `Role::load()` statically; `MigrationDetailController`
   uses `$this->entityTypeManager()`; and dead local variables are gone. No
   behaviour changes.
+- `MigrationRunWorker` injects the database connection and logger factory
+  rather than calling `\Drupal::database()` and `\Drupal::logger()`; the suite
+  now has no `\Drupal::` calls left inside classes.
 - `PartialRollbackConfirmForm` injects the private tempstore and
   `MigrationIdFilter` injects the migration plugin manager, instead of calling
   `\Drupal::service()`. `MigrationDashboardController` stops re-declaring

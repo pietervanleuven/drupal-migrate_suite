@@ -21,7 +21,6 @@ variables:
   OPT_IN_TEST_PREVIOUS_MAJOR: 1
   OPT_IN_TEST_NEXT_MAJOR: 1
 
-# PHPStan runs against the bundled phpstan.neon; keep it advisory until the
-# baseline is clean rather than blocking merges on it.
+# The PHPStan baseline is clean, so let it block rather than warn.
 phpstan:
-  allow_failure: true
+  allow_failure: false
