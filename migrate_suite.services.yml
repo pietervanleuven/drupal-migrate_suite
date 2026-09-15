@@ -17,6 +17,10 @@ services:
 
   migrate_suite.run_logger:
     class: Drupal\migrate_suite\EventSubscriber\MigrateRunLogger
-    arguments: ['@database', '@datetime.time', '@cache_tags.invalidator', '@migrate_suite.delta_detection']
+    arguments: ['@database', '@datetime.time', '@cache_tags.invalidator', '@state', '@migrate_suite.delta_detection']
     tags:
       - { name: event_subscriber }
+
+  migrate_suite.stale_run_reaper:
+    class: Drupal\migrate_suite\Service\StaleRunReaper
+    arguments: ['@database', '@datetime.time', '@cache_tags.invalidator', '@migrate_suite.run_logger']

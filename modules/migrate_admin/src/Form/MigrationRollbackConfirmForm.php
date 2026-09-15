@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\migrate_admin\Form;
 
 use Drupal\migrate\MigrateMessage;
-use Drupal\migrate\MigrateExecutable;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -14,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\migrate_admin\MigrateBatchExecutable;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Drupal\migrate_suite\Service\MigrateMapQuery;
 use Drupal\migrate_suite\Service\MigrateTableNameResolver;
@@ -25,6 +25,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * Confirmation form for rolling back a migration.
  */
 class MigrationRollbackConfirmForm extends ConfirmFormBase {
+
+  /**
+   * Number of ID map rows rolled back per batch operation invocation.
+   *
+   * Chosen to keep a single invocation well under typical
+   * max_execution_time/memory limits even when each row triggers a full
+   * entity delete (field cleanup, hook invocations, cache invalidation),
+   * while still keeping the batch progress bar moving in useful increments.
+   */
+  public const ITEMS_PER_BATCH = 50;
 
   /**
    * The migration to rollback.
@@ -263,6 +273,12 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
   /**
    * Batch operation callback for rolling back a migration.
    *
+   * Drupal's Batch API calls this operation repeatedly, persisting state in
+   * $context['sandbox'] between calls, until $context['finished'] reaches 1.
+   * Each call rolls back at most static::ITEMS_PER_BATCH ID map rows (see
+   * \Drupal\migrate_admin\MigrateBatchExecutable) so that a single request
+   * never has to process an entire large migration.
+   *
    * @param string $migrationId
    *   The migration ID.
    * @param array $context
@@ -277,20 +293,105 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
     }
     catch (\Exception $e) {
       $context['results']['errors'][] = $e->getMessage();
+      $context['finished'] = 1;
       return;
     }
 
     if ($migration === NULL) {
       $context['results']['errors'][] = t('Migration @id not found.', ['@id' => $migrationId]);
+      $context['finished'] = 1;
       return;
     }
 
-    $executable = new MigrateExecutable($migration, new MigrateMessage());
-    $result = $executable->rollback();
-
+    // Record the migration ID before starting the session, not inside the
+    // first-chunk block below. batchFinished() needs it to end the session,
+    // and anything between here and there can throw: if a session existed
+    // without batchFinished() knowing which migration to end, the session
+    // would leak, and the NEXT rollback of this migration would resume into
+    // this run's log row and accumulate its counters onto it.
     $context['results']['migration_id'] = $migrationId;
-    $context['results']['migration_label'] = $migration->label() ?: $migrationId;
-    $context['results']['status'] = $result;
+
+    // Mark that every PRE_ROLLBACK/POST_ROLLBACK pair MigrateRunLogger sees
+    // for this migration, across however many chunks it takes, belongs to
+    // one logical run. Safe to call on every chunk: startRunSession() is a
+    // no-op once a session is already active. static::batchRollback() has
+    // no container access of its own, so this legitimately goes through
+    // the \Drupal facade.
+    \Drupal::service('migrate_suite.run_logger')->startRunSession($migrationId, 'rollback');
+
+    if (!isset($context['sandbox']['total'])) {
+      // The rollback loop iterates every row currently in the ID map
+      // (regardless of status), so that is the correct denominator for
+      // progress reporting — unlike import(), this is always a real count.
+      $total = 0;
+      try {
+        $total = $migration->getIdMap()->processedCount();
+      }
+      catch (\Throwable $e) {
+        // An ID map plugin can raise a PHP Error, not just an Exception --
+        // the same hazard DeltaDetectionService was hardened against. A
+        // failed count is not a reason to abort the rollback.
+        $total = 0;
+      }
+
+      $context['sandbox']['total'] = $total;
+      $context['sandbox']['processed'] = 0;
+      $context['results']['migration_label'] = $migration->label() ?: $migrationId;
+      $context['results']['rolled_back'] = 0;
+    }
+
+    $executable = new MigrateBatchExecutable($migration, new MigrateMessage(), static::ITEMS_PER_BATCH);
+    $status = $executable->rollback();
+    $processedThisRun = $executable->getItemsProcessed();
+
+    $context['sandbox']['processed'] += $processedThisRun;
+    $context['results']['rolled_back'] = $context['sandbox']['processed'];
+    $context['results']['status'] = $status;
+
+    $total = $context['sandbox']['total'];
+    if ($total > 0) {
+      $context['message'] = t('Rolled back @processed of @total items.', [
+        '@processed' => $context['sandbox']['processed'],
+        '@total' => $total,
+      ]);
+    }
+    else {
+      $context['message'] = t('Rolled back @processed items so far.', [
+        '@processed' => $context['sandbox']['processed'],
+      ]);
+    }
+
+    // A terminal status always ends the batch, whether or not it is the
+    // "successful" one — RESULT_FAILED/RESULT_STOPPED must stop the loop
+    // just as much as RESULT_COMPLETED does.
+    $terminalStatuses = [
+      MigrationInterface::RESULT_COMPLETED,
+      MigrationInterface::RESULT_STOPPED,
+      MigrationInterface::RESULT_FAILED,
+    ];
+    if (in_array($status, $terminalStatuses, TRUE)) {
+      $context['finished'] = 1;
+      return;
+    }
+
+    // Guarantee termination: a chunk that processed nothing and did not
+    // report completion cannot be trusted to ever finish if we keep
+    // re-running it, so treat it as done instead of looping forever.
+    if ($processedThisRun === 0) {
+      $context['finished'] = 1;
+      return;
+    }
+
+    if ($total > 0) {
+      // Cap below 1 so the progress bar cannot report 100% before the
+      // executable itself reports a terminal status.
+      $context['finished'] = min($context['sandbox']['processed'] / $total, 0.99);
+    }
+    else {
+      // Unknown/zero total: completion is driven entirely by the
+      // terminal-status check above.
+      $context['finished'] = 0;
+    }
   }
 
   /**
@@ -304,6 +405,18 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
    *   The remaining operations.
    */
   public static function batchFinished(bool $success, array $results, array $operations): void {
+    // Finalize the run session on every path — success, failure, and abort
+    // (Drupal calls this callback with $success = FALSE and $results
+    // containing whatever was gathered before an operation failed) — so a
+    // run log row is never left stuck 'running'. endRunSession() is a
+    // no-op if no session was ever started (e.g. the migration lookup
+    // failed before startRunSession() was reached). This has no container
+    // access of its own, so it legitimately goes through the \Drupal
+    // facade.
+    if (isset($results['migration_id']) && is_string($results['migration_id'])) {
+      \Drupal::service('migrate_suite.run_logger')->endRunSession($results['migration_id']);
+    }
+
     if (!empty($results['errors'])) {
       foreach ($results['errors'] as $error) {
         \Drupal::messenger()->addError($error);
@@ -313,15 +426,20 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
 
     if ($success && isset($results['status'])) {
       $label = $results['migration_label'] ?? $results['migration_id'] ?? 'Unknown';
+      $rolledBack = $results['rolled_back'] ?? 0;
 
       if ($results['status'] === MigrationInterface::RESULT_COMPLETED) {
-        \Drupal::messenger()->addStatus(t('Migration %migration rollback completed successfully.', [
-          '%migration' => $label,
-        ]));
+        \Drupal::messenger()->addStatus(\Drupal::translation()->formatPlural(
+          $rolledBack,
+          'Migration %migration rollback completed successfully. One item rolled back.',
+          'Migration %migration rollback completed successfully. @count items rolled back.',
+          ['%migration' => $label]
+        ));
       }
       else {
-        \Drupal::messenger()->addWarning(t('Migration %migration rollback finished with status: @status.', [
+        \Drupal::messenger()->addWarning(t('Migration %migration rollback stopped after @count items with status: @status.', [
           '%migration' => $label,
+          '@count' => $rolledBack,
           '@status' => $results['status'],
         ]));
       }
