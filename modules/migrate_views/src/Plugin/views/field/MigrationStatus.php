@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\migrate_views\Plugin\views\field;
 
+use Drupal\views\Attribute\ViewsField;
 use Drupal\views\Plugin\views\field\FieldPluginBase;
 use Drupal\views\ResultRow;
 
 /**
  * Renders the migration run status as a badge.
- *
- * @ViewsField("migrate_views_status")
  */
+#[ViewsField("migrate_views_status")]
 class MigrationStatus extends FieldPluginBase {
 
   /**

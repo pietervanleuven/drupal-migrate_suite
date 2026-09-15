@@ -7,7 +7,9 @@ namespace Drupal\migrate_schedule\Plugin\QueueWorker;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Queue\Attribute\QueueWorker;
 use Drupal\Core\Queue\QueueWorkerBase;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\migrate\MigrateExecutable;
 use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
@@ -17,13 +19,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Processes scheduled migration imports.
- *
- * @QueueWorker(
- *   id = "migrate_schedule_run",
- *   title = @Translation("Scheduled migration runner"),
- *   cron = {"time" = 300}
- * )
  */
+#[QueueWorker(
+  id: 'migrate_schedule_run',
+  title: new TranslatableMarkup('Scheduled migration runner'),
+  cron: ['time' => 300]
+)]
 class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {
 
   /**

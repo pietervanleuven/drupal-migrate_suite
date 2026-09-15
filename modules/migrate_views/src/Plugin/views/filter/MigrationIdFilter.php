@@ -6,14 +6,14 @@ namespace Drupal\migrate_views\Plugin\views\filter;
 
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\views\Attribute\ViewsFilter;
 use Drupal\views\Plugin\views\filter\InOperator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Filter by migration plugin ID with a dropdown of known migrations.
- *
- * @ViewsFilter("migrate_views_migration_id")
  */
+#[ViewsFilter("migrate_views_migration_id")]
 class MigrationIdFilter extends InOperator implements ContainerFactoryPluginInterface {
 
   /**
