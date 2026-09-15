@@ -42,7 +42,7 @@ class DeltaDetectionService {
       sort($ids);
       return hash('sha256', implode("\n", $ids));
     }
-    catch (\Exception $e) {
+    catch (\Throwable $e) {
       return NULL;
     }
   }
@@ -61,7 +61,7 @@ class DeltaDetectionService {
       $count = $migration->getSourcePlugin()->count();
       return $count === -1 ? NULL : $count;
     }
-    catch (\Exception $e) {
+    catch (\Throwable $e) {
       return NULL;
     }
   }
@@ -108,7 +108,7 @@ class DeltaDetectionService {
       $migrations = $this->migrationPluginManager->createInstances([$migrationId]);
       $migration = $migrations[$migrationId] ?? NULL;
     }
-    catch (\Exception $e) {
+    catch (\Throwable $e) {
       $migration = NULL;
     }
 

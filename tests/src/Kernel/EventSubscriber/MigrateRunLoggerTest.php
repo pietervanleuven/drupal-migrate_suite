@@ -12,6 +12,7 @@ use Drupal\migrate\Event\MigratePostRowSaveEvent;
 use Drupal\migrate\Event\MigratePreRowSaveEvent;
 use Drupal\migrate\MigrateMessageInterface;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
+use Drupal\migrate\Plugin\MigrateSourceInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Row;
 use Drupal\migrate_suite\EventSubscriber\MigrateRunLogger;
@@ -51,8 +52,13 @@ class MigrateRunLoggerTest extends KernelTestBase {
    * Creates a mock migration.
    */
   protected function createMockMigration(string $id): MigrationInterface {
+    $source = $this->createMock(MigrateSourceInterface::class);
+    $source->method('count')->willReturn(0);
+    $source->method('valid')->willReturn(FALSE);
+
     $migration = $this->createMock(MigrationInterface::class);
     $migration->method('id')->willReturn($id);
+    $migration->method('getSourcePlugin')->willReturn($source);
     return $migration;
   }
 

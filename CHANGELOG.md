@@ -25,6 +25,11 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   comparisons now use the core constants, and the row status label gained the
   missing "Ignored" entry.
 
+- **Delta detection could abort an import.** `DeltaDetectionService` caught
+  `\Exception`, so a PHP `Error` raised by a source plugin escaped the
+  `PRE_IMPORT` subscriber and took the migration run down with it. It now
+  catches `\Throwable`, degrading to "no fingerprint" as intended.
+
 - **Status and severity counts crashed with a fatal error.** `addExpression()`
   returns the expression alias, not the query object, so the chained
   `->execute()` in `MigrateMapQuery::countItemsByStatus()`,
