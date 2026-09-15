@@ -55,12 +55,13 @@ drush en migrate_admin migrate_permissions migrate_health migrate_source_field m
 
 Full administration dashboard at `/admin/structure/migrate-suite`.
 
-- Lists all migrations with status, group, counts, and last run time
+- Lists all migrations with status, group, counts, and last run time, paginated at 50 per page
 - Color-coded status badges, grouped by migration group, with filtering
 - Detail page per migration with tabs: Imported Items, Messages, Failed Items, Run History
 - Messages tab with severity summary, grouping, full-text search, CSV export, and re-run by error
-- Run and rollback with dependency warnings and source change detection
+- Run and rollback with dependency warnings and source change detection, processed in chunks of 50 items with a live progress bar — large migrations never exhaust a single request
 - Rollback dry-run preview and partial rollback (select specific items)
+- Run history that survives interruptions: a run killed mid-way (timeout, crash, closed browser) is automatically marked failed by cron instead of showing "running" forever
 
 **Permission:** `view migrate suite dashboard`
 
