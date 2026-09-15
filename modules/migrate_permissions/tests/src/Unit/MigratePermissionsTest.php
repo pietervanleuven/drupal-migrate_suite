@@ -11,6 +11,7 @@ use Drupal\Tests\UnitTestCase;
 
 /**
  * @coversDefaultClass \Drupal\migrate_permissions\MigratePermissions
+ * @group migrate_suite
  * @group migrate_permissions
  */
 class MigratePermissionsTest extends UnitTestCase {

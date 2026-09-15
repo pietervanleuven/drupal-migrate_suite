@@ -13,6 +13,7 @@ use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -38,11 +39,23 @@ class FailedItemsResetForm extends ConfirmFormBase {
 
   /**
    * Constructs a FailedItemsResetForm.
+   *
+   * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
+   *   The migration plugin manager.
+   * @param \Drupal\Core\Database\Connection $database
+   *   The database connection.
+   * @param \Drupal\Core\Session\AccountInterface $currentUser
+   *   The current user.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
+   * @param \Drupal\migrate_permissions\MigrateAccessCheck|null $migrateAccessCheck
+   *   The access check, or NULL if migrate_permissions is not installed.
    */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly AccountInterface $currentUser,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
   ) {}
 
@@ -59,6 +72,7 @@ class FailedItemsResetForm extends ConfirmFormBase {
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('current_user'),
+      $container->get('migrate_suite.table_name_resolver'),
       $migrateAccessCheck,
     );
   }
@@ -128,7 +142,7 @@ class FailedItemsResetForm extends ConfirmFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $mapTable = 'migrate_map_' . $this->migrationId;
+    $mapTable = $this->tableNameResolver->getMapTableName($this->migrationId);
 
     if ($this->database->schema()->tableExists($mapTable)) {
       $updated = $this->database->update($mapTable)
@@ -171,7 +185,7 @@ class FailedItemsResetForm extends ConfirmFormBase {
    *   The number of failed items.
    */
   protected function getFailedCount(): int {
-    $mapTable = 'migrate_map_' . $this->migrationId;
+    $mapTable = $this->tableNameResolver->getMapTableName($this->migrationId);
     if (!$this->database->schema()->tableExists($mapTable)) {
       return 0;
     }

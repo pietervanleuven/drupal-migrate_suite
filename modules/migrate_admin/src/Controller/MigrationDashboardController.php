@@ -15,6 +15,7 @@ use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_health\Service\MigrationHealthAnalyzer;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Drupal\migrate_schedule\Service\ScheduleManager;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -32,12 +33,23 @@ class MigrationDashboardController extends ControllerBase {
    *   The database connection.
    * @param \Drupal\Core\Datetime\DateFormatterInterface $dateFormatter
    *   The date formatter service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler service.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
+   * @param \Drupal\migrate_permissions\MigrateAccessCheck|null $migrateAccessCheck
+   *   The access check, or NULL if migrate_permissions is not installed.
+   * @param \Drupal\migrate_health\Service\MigrationHealthAnalyzer|null $healthAnalyzer
+   *   The health analyzer, or NULL if migrate_health is not installed.
+   * @param \Drupal\migrate_schedule\Service\ScheduleManager|null $scheduleManager
+   *   The schedule manager, or NULL if migrate_schedule is not installed.
    */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly DateFormatterInterface $dateFormatter,
     protected readonly ModuleHandlerInterface $moduleHandler,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
     protected readonly ?MigrationHealthAnalyzer $healthAnalyzer,
     protected readonly ?ScheduleManager $scheduleManager,
@@ -64,6 +76,7 @@ class MigrationDashboardController extends ControllerBase {
       $container->get('database'),
       $container->get('date.formatter'),
       $moduleHandler,
+      $container->get('migrate_suite.table_name_resolver'),
       $migrateAccessCheck,
       $healthAnalyzer,
       $scheduleManager,
@@ -288,7 +301,7 @@ class MigrationDashboardController extends ControllerBase {
       'failed' => 0,
     ];
 
-    $table = 'migrate_map_' . $migrationId;
+    $table = $this->tableNameResolver->getMapTableName($migrationId);
     if (!$this->database->schema()->tableExists($table)) {
       return $counts;
     }
@@ -516,13 +529,14 @@ class MigrationDashboardController extends ControllerBase {
    *   The group name.
    * @param array $migrations
    *   The migrations in this group.
+   * @param bool $showHealth
+   *   Whether to render the health column.
    *
    * @return array
    *   A render array for the group.
    */
   protected function buildGroupTable(string $group, array $migrations, bool $showHealth = FALSE): array {
     $rows = [];
-    $showActions = FALSE;
     foreach ($migrations as $migrationId => $data) {
       $statusBadge = $this->buildStatusBadge($data['status']);
 
@@ -533,11 +547,9 @@ class MigrationDashboardController extends ControllerBase {
       // Build action links.
       $actions = [];
       if ($data['can_run']) {
-        $showActions = TRUE;
         $actions[] = Link::fromTextAndUrl($this->t('Run'), Url::fromRoute('migrate_admin.migration_run_confirm', ['migration_id' => $migrationId]))->toString();
       }
       if ($data['can_rollback']) {
-        $showActions = TRUE;
         $actions[] = Link::fromTextAndUrl($this->t('Rollback'), Url::fromRoute('migrate_admin.migration_rollback_confirm', ['migration_id' => $migrationId]))->toString();
       }
       $actionsMarkup = $actions ? implode(' | ', $actions) : '';

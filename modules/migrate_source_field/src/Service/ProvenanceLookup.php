@@ -6,6 +6,7 @@ namespace Drupal\migrate_source_field\Service;
 
 use Drupal\Core\Database\Connection;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 
 /**
  * Service for looking up migration provenance data for entities.
@@ -19,10 +20,13 @@ class ProvenanceLookup {
    *   The database connection.
    * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
    *   The migration plugin manager.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The table name resolver.
    */
   public function __construct(
     protected readonly Connection $database,
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -49,7 +53,7 @@ class ProvenanceLookup {
         continue;
       }
 
-      $table = 'migrate_map_' . $migrationId;
+      $table = $this->tableNameResolver->getMapTableName($migrationId);
       if (!$this->database->schema()->tableExists($table)) {
         continue;
       }

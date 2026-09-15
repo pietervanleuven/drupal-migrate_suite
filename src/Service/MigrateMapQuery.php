@@ -20,10 +20,13 @@ class MigrateMapQuery {
    *   The database connection.
    * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
    *   The migration plugin manager.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migrate table name resolver.
    */
   public function __construct(
     protected readonly Connection $database,
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -36,7 +39,7 @@ class MigrateMapQuery {
    *   The map table name.
    */
   protected function getMapTableName(string $migrationId): string {
-    return 'migrate_map_' . $migrationId;
+    return $this->tableNameResolver->getMapTableName($migrationId);
   }
 
   /**
@@ -109,16 +112,6 @@ class MigrateMapQuery {
       ->fetchAll();
   }
 
-  /**
-   * Counts items by status for a migration.
-   *
-   * @param string $migrationId
-   *   The migration plugin ID.
-   *
-   * @return array
-   *   An associative array with keys 'imported', 'needs_update', 'failed'
-   *   and their respective counts.
-   */
   /**
    * Counts imported items for a migration (status = 0).
    *

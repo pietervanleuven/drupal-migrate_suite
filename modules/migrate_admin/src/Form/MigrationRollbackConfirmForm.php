@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\migrate_admin\Form;
 
+use Drupal\migrate\MigrateMessage;
+use Drupal\migrate\MigrateExecutable;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -14,6 +16,7 @@ use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Drupal\migrate_suite\Service\MigrateMapQuery;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -39,13 +42,27 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
 
   /**
    * Constructs a MigrationRollbackConfirmForm.
+   *
+   * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
+   *   The migration plugin manager.
+   * @param \Drupal\Core\Database\Connection $database
+   *   The database connection.
+   * @param \Drupal\Core\Session\AccountInterface $currentUser
+   *   The current user.
+   * @param \Drupal\migrate_suite\Service\MigrateMapQuery $mapQuery
+   *   The migrate map query service.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
+   * @param \Drupal\migrate_permissions\MigrateAccessCheck|null $migrateAccessCheck
+   *   The access check, or NULL if migrate_permissions is not installed.
    */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly AccountInterface $currentUser,
-    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
     protected readonly MigrateMapQuery $mapQuery,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
+    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
   ) {}
 
   /**
@@ -61,8 +78,9 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('current_user'),
-      $migrateAccessCheck,
       $container->get('migrate_suite.map_query'),
+      $container->get('migrate_suite.table_name_resolver'),
+      $migrateAccessCheck,
     );
   }
 
@@ -267,7 +285,7 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
       return;
     }
 
-    $executable = new \Drupal\migrate\MigrateExecutable($migration, new \Drupal\migrate\MigrateMessage());
+    $executable = new MigrateExecutable($migration, new MigrateMessage());
     $result = $executable->rollback();
 
     $context['results']['migration_id'] = $migrationId;
@@ -334,7 +352,7 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
    *   The imported count, or NULL if map table doesn't exist.
    */
   protected function getImportedCount(): ?int {
-    $mapTable = 'migrate_map_' . $this->migrationId;
+    $mapTable = $this->tableNameResolver->getMapTableName($this->migrationId);
     if (!$this->database->schema()->tableExists($mapTable)) {
       return NULL;
     }
@@ -371,7 +389,7 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
       $requirements = $definition['migration_dependencies']['required'] ?? [];
 
       if (in_array($this->migrationId, $requirements, TRUE)) {
-        $mapTable = 'migrate_map_' . $otherId;
+        $mapTable = $this->tableNameResolver->getMapTableName($otherId);
         if ($this->database->schema()->tableExists($mapTable)) {
           $importedCount = (int) $this->database->select($mapTable, 'map')
             ->condition('source_row_status', 0)

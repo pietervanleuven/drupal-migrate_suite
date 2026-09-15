@@ -1,11 +1,15 @@
 services:
+  migrate_suite.table_name_resolver:
+    class: Drupal\migrate_suite\Service\MigrateTableNameResolver
+    arguments: ['@database']
+
   migrate_suite.map_query:
     class: Drupal\migrate_suite\Service\MigrateMapQuery
-    arguments: ['@database', '@plugin.manager.migration']
+    arguments: ['@database', '@plugin.manager.migration', '@migrate_suite.table_name_resolver']
 
   migrate_suite.message_query:
     class: Drupal\migrate_suite\Service\MigrateMessageQuery
-    arguments: ['@database']
+    arguments: ['@database', '@migrate_suite.table_name_resolver']
 
   migrate_suite.delta_detection:
     class: Drupal\migrate_suite\Service\DeltaDetectionService

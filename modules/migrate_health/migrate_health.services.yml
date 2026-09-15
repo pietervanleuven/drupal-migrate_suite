@@ -1,4 +1,4 @@
 services:
   migrate_health.analyzer:
     class: Drupal\migrate_health\Service\MigrationHealthAnalyzer
-    arguments: ['@database', '@config.factory', '@datetime.time']
+    arguments: ['@database', '@config.factory', '@datetime.time', '@migrate_suite.table_name_resolver']

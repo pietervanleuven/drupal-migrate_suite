@@ -7,6 +7,7 @@ namespace Drupal\migrate_health\Service;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 
 /**
  * Analyzes migration health based on run history and failure rates.
@@ -29,11 +30,14 @@ class MigrationHealthAnalyzer {
    *   The config factory.
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The table name resolver.
    */
   public function __construct(
     protected readonly Connection $database,
     protected readonly ConfigFactoryInterface $configFactory,
     protected readonly TimeInterface $time,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -117,7 +121,7 @@ class MigrationHealthAnalyzer {
    *   TRUE if failing.
    */
   protected function isFailingMigration(string $migrationId, float $threshold): bool {
-    $table = 'migrate_map_' . $migrationId;
+    $table = $this->tableNameResolver->getMapTableName($migrationId);
     if (!$this->database->schema()->tableExists($table)) {
       return FALSE;
     }

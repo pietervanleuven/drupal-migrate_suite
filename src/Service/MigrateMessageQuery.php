@@ -16,9 +16,12 @@ class MigrateMessageQuery {
    *
    * @param \Drupal\Core\Database\Connection $database
    *   The database connection.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migrate table name resolver.
    */
   public function __construct(
     protected readonly Connection $database,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -31,7 +34,7 @@ class MigrateMessageQuery {
    *   The message table name.
    */
   protected function getMessageTableName(string $migrationId): string {
-    return 'migrate_message_' . $migrationId;
+    return $this->tableNameResolver->getMessageTableName($migrationId);
   }
 
   /**
@@ -61,17 +64,6 @@ class MigrateMessageQuery {
       ->fetchAll();
   }
 
-  /**
-   * Fetches messages for a specific source ID within a migration.
-   *
-   * @param string $migrationId
-   *   The migration plugin ID.
-   * @param array $sourceIdValues
-   *   The source ID values.
-   *
-   * @return array
-   *   An array of message rows for the given source ID.
-   */
   /**
    * Gets message counts grouped by severity level.
    *
@@ -139,17 +131,6 @@ class MigrateMessageQuery {
   }
 
   /**
-   * Fetches messages for a specific source ID within a migration.
-   *
-   * @param string $migrationId
-   *   The migration plugin ID.
-   * @param array $sourceIdValues
-   *   The source ID values.
-   *
-   * @return array
-   *   An array of message rows for the given source ID.
-   */
-  /**
    * Searches messages by text with optional severity filter.
    *
    * @param string $migrationId
@@ -201,34 +182,21 @@ class MigrateMessageQuery {
   public function getAllMessages(string $migrationId, ?int $severity = NULL): \Generator {
     $table = $this->getMessageTableName($migrationId);
 
-    if (!$this->database->schema()->tableExists($table)) {
-      return;
-    }
+    if ($this->database->schema()->tableExists($table)) {
+      $query = $this->database->select($table, 'msg')
+        ->fields('msg');
 
-    $query = $this->database->select($table, 'msg')
-      ->fields('msg');
+      if ($severity !== NULL) {
+        $query->condition('level', $severity);
+      }
 
-    if ($severity !== NULL) {
-      $query->condition('level', $severity);
-    }
-
-    $result = $query->execute();
-    while ($row = $result->fetchObject()) {
-      yield $row;
+      $result = $query->execute();
+      while ($row = $result->fetchObject()) {
+        yield $row;
+      }
     }
   }
 
-  /**
-   * Fetches messages for a specific source ID within a migration.
-   *
-   * @param string $migrationId
-   *   The migration plugin ID.
-   * @param array $sourceIdValues
-   *   The source ID values.
-   *
-   * @return array
-   *   An array of message rows for the given source ID.
-   */
   /**
    * Gets source IDs for all messages matching a specific text.
    *

@@ -12,6 +12,7 @@ use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_permissions\MigrateAccessCheck;
 use Drupal\migrate_suite\Service\MigrateMessageQuery;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -36,6 +37,12 @@ class MigrationDetailController extends ControllerBase {
    *   The database connection.
    * @param \Drupal\Core\Datetime\DateFormatterInterface $dateFormatter
    *   The date formatter service.
+   * @param \Drupal\migrate_permissions\MigrateAccessCheck|null $migrateAccessCheck
+   *   The access check, or NULL if migrate_permissions is not installed.
+   * @param \Drupal\migrate_suite\Service\MigrateMessageQuery $messageQuery
+   *   The migrate message query service.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
    */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
@@ -43,6 +50,7 @@ class MigrationDetailController extends ControllerBase {
     protected readonly DateFormatterInterface $dateFormatter,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
     protected readonly MigrateMessageQuery $messageQuery,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -59,6 +67,7 @@ class MigrationDetailController extends ControllerBase {
       $container->get('date.formatter'),
       $migrateAccessCheck,
       $container->get('migrate_suite.message_query'),
+      $container->get('migrate_suite.table_name_resolver'),
     );
   }
 
@@ -136,7 +145,8 @@ class MigrationDetailController extends ControllerBase {
    *   A render array.
    */
   public function messages(string $migration_id, Request $request): array {
-    $migration = $this->loadMigration($migration_id);
+    // Loading validates the migration ID and the caller's access to it.
+    $this->loadMigration($migration_id);
 
     $build = [];
 
@@ -169,7 +179,8 @@ class MigrationDetailController extends ControllerBase {
    *   A render array.
    */
   public function failedItems(string $migration_id, Request $request): array {
-    $migration = $this->loadMigration($migration_id);
+    // Loading validates the migration ID and the caller's access to it.
+    $this->loadMigration($migration_id);
 
     $build = [];
 
@@ -202,7 +213,8 @@ class MigrationDetailController extends ControllerBase {
    *   A render array.
    */
   public function history(string $migration_id, Request $request): array {
-    $migration = $this->loadMigration($migration_id);
+    // Loading validates the migration ID and the caller's access to it.
+    $this->loadMigration($migration_id);
 
     $build = [];
     $build['tabs'] = $this->buildTabs($migration_id, 'history');
@@ -361,7 +373,7 @@ class MigrationDetailController extends ControllerBase {
    *   The number of failed items.
    */
   protected function getFailedItemCount(string $migrationId): int {
-    $table = 'migrate_map_' . $migrationId;
+    $table = $this->tableNameResolver->getMapTableName($migrationId);
     if (!$this->database->schema()->tableExists($table)) {
       return 0;
     }
@@ -388,7 +400,7 @@ class MigrationDetailController extends ControllerBase {
     $search = $request->query->get('search', '');
     $page = max(0, (int) $request->query->get('page', 0));
 
-    $mapTable = 'migrate_map_' . $migrationId;
+    $mapTable = $this->tableNameResolver->getMapTableName($migrationId);
     if (!$this->database->schema()->tableExists($mapTable)) {
       return [
         '#markup' => '<p>' . $this->t('No map table exists for this migration. The migration may not have been run yet.') . '</p>',
@@ -427,7 +439,7 @@ class MigrationDetailController extends ControllerBase {
     $rows = $query->execute()->fetchAll();
 
     // Check if message table exists for error messages.
-    $msgTable = 'migrate_message_' . $migrationId;
+    $msgTable = $this->tableNameResolver->getMessageTableName($migrationId);
     $hasMsgTable = $this->database->schema()->tableExists($msgTable);
 
     // Detect message source ID columns.
@@ -800,7 +812,7 @@ class MigrationDetailController extends ControllerBase {
     $statusFilter = $request->query->get('status', '');
     $page = max(0, (int) $request->query->get('page', 0));
 
-    $table = 'migrate_map_' . $migrationId;
+    $table = $this->tableNameResolver->getMapTableName($migrationId);
     if (!$this->database->schema()->tableExists($table)) {
       return [
         '#markup' => '<p>' . $this->t('No map table exists for this migration. The migration may not have been run yet.') . '</p>',
@@ -935,7 +947,7 @@ class MigrationDetailController extends ControllerBase {
     $grouped = $request->query->get('group', '') === '1';
     $page = max(0, (int) $request->query->get('page', 0));
 
-    $table = 'migrate_message_' . $migrationId;
+    $table = $this->tableNameResolver->getMessageTableName($migrationId);
     if (!$this->database->schema()->tableExists($table)) {
       return [
         '#markup' => '<p>' . $this->t('No message table exists for this migration.') . '</p>',
@@ -1007,7 +1019,7 @@ class MigrationDetailController extends ControllerBase {
    * Builds the individual (non-grouped) messages table.
    */
   protected function buildIndividualMessagesTable(string $migrationId, string $severityFilter, string $search, int $page): array {
-    $table = 'migrate_message_' . $migrationId;
+    $table = $this->tableNameResolver->getMessageTableName($migrationId);
 
     $query = $this->database->select($table, 'msg')
       ->fields('msg');
@@ -1202,6 +1214,8 @@ class MigrationDetailController extends ControllerBase {
    *   The migration ID.
    * @param string $severityFilter
    *   Current severity filter.
+   * @param string $search
+   *   Current message text filter.
    *
    * @return array
    *   A render array.
@@ -1461,7 +1475,7 @@ class MigrationDetailController extends ControllerBase {
       // Extract entity type from destination plugin (e.g., 'entity:node').
       if (str_starts_with($destPlugin, 'entity:')) {
         $entityTypeId = substr($destPlugin, 7);
-        $entityTypeManager = \Drupal::entityTypeManager();
+        $entityTypeManager = $this->entityTypeManager();
         if ($entityTypeManager->hasDefinition($entityTypeId)) {
           $entity = $entityTypeManager->getStorage($entityTypeId)->load($destId);
           if ($entity && $entity->hasLinkTemplate('canonical')) {

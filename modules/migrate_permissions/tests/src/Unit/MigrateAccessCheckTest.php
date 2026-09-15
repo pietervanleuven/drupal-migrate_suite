@@ -10,6 +10,7 @@ use Drupal\Tests\UnitTestCase;
 
 /**
  * @coversDefaultClass \Drupal\migrate_permissions\MigrateAccessCheck
+ * @group migrate_suite
  * @group migrate_permissions
  */
 class MigrateAccessCheckTest extends UnitTestCase {

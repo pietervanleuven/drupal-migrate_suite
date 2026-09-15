@@ -12,6 +12,7 @@ use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_suite\Service\MigrateMessageQuery;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -36,10 +37,23 @@ class RerunByErrorForm extends ConfirmFormBase {
    */
   protected array $sourceIdSets = [];
 
+  /**
+   * Constructs a RerunByErrorForm.
+   *
+   * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
+   *   The migration plugin manager.
+   * @param \Drupal\Core\Database\Connection $database
+   *   The database connection.
+   * @param \Drupal\migrate_suite\Service\MigrateMessageQuery $messageQuery
+   *   The migrate message query service.
+   * @param \Drupal\migrate_suite\Service\MigrateTableNameResolver $tableNameResolver
+   *   The migration table name resolver service.
+   */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly MigrateMessageQuery $messageQuery,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**
@@ -50,6 +64,7 @@ class RerunByErrorForm extends ConfirmFormBase {
       $container->get('plugin.manager.migration'),
       $container->get('database'),
       $container->get('migrate_suite.message_query'),
+      $container->get('migrate_suite.table_name_resolver'),
     );
   }
 
@@ -142,7 +157,7 @@ class RerunByErrorForm extends ConfirmFormBase {
     $messageText = $form_state->getValue('message_text');
 
     $sourceIdSets = $this->messageQuery->getSourceIdsForMessage($migrationId, $messageText);
-    $mapTable = 'migrate_map_' . $migrationId;
+    $mapTable = $this->tableNameResolver->getMapTableName($migrationId);
 
     if (!$this->database->schema()->tableExists($mapTable)) {
       $this->messenger()->addError($this->t('Map table does not exist for this migration.'));

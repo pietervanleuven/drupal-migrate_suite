@@ -10,6 +10,7 @@ use Drupal\migrate\MigrateExecutable;
 use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\migrate_suite\Service\DeltaDetectionService;
+use Drupal\migrate_suite\Service\MigrateTableNameResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -29,6 +30,7 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
     $plugin_definition,
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly ?DeltaDetectionService $deltaDetection,
+    protected readonly MigrateTableNameResolver $tableNameResolver,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
@@ -43,6 +45,7 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
       $plugin_definition,
       $container->get('plugin.manager.migration'),
       $container->get('migrate_suite.delta_detection'),
+      $container->get('migrate_suite.table_name_resolver'),
     );
   }
 
@@ -88,7 +91,7 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
     $definition = $migration->getPluginDefinition();
     $requirements = $definition['migration_dependencies']['required'] ?? [];
     foreach ($requirements as $requiredId) {
-      $mapTable = 'migrate_map_' . $requiredId;
+      $mapTable = $this->tableNameResolver->getMapTableName($requiredId);
       if (!\Drupal::database()->schema()->tableExists($mapTable)) {
         \Drupal::logger('migrate_schedule')->warning('Skipping scheduled run for @migration: dependency @dep has not been run.', [
           '@migration' => $migrationId,

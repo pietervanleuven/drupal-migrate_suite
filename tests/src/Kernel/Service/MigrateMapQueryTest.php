@@ -36,9 +36,23 @@ class MigrateMapQueryTest extends KernelTestBase {
 
   /**
    * Creates a migrate_map table for testing.
+   *
+   * Only valid for migration IDs without a colon, where naive concatenation
+   * and core's actual table-naming rules happen to agree.
    */
   protected function createMapTable(string $migrationId): void {
-    $table = 'migrate_map_' . $migrationId;
+    $this->createMapTableNamed('migrate_map_' . $migrationId);
+  }
+
+  /**
+   * Creates a migrate_map table for testing, given an already-built name.
+   *
+   * @param string $table
+   *   The full (unprefixed) map table name, e.g. as core's
+   *   \Drupal\migrate\Plugin\migrate\id_map\Sql would build it for a
+   *   migration ID.
+   */
+  protected function createMapTableNamed(string $table): void {
     $this->container->get('database')->schema()->createTable($table, [
       'fields' => [
         'source_ids_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
@@ -54,9 +68,18 @@ class MigrateMapQueryTest extends KernelTestBase {
 
   /**
    * Inserts a row into the map table.
+   *
+   * Only valid for migration IDs without a colon; see createMapTable().
    */
   protected function insertMapRow(string $migrationId, string $sourceId, int $destId, int $status = 0): void {
-    $this->container->get('database')->insert('migrate_map_' . $migrationId)
+    $this->insertMapRowIntoTable('migrate_map_' . $migrationId, $sourceId, $destId, $status);
+  }
+
+  /**
+   * Inserts a row into an already-named map table.
+   */
+  protected function insertMapRowIntoTable(string $table, string $sourceId, int $destId, int $status = 0): void {
+    $this->container->get('database')->insert($table)
       ->fields([
         'source_ids_hash' => md5($sourceId),
         'sourceid1' => $sourceId,
@@ -158,6 +181,42 @@ class MigrateMapQueryTest extends KernelTestBase {
   public function testCountItemsByStatusReturnsZerosForNonexistentTable(): void {
     $counts = $this->mapQuery->countItemsByStatus('nonexistent');
     $this->assertEquals(['imported' => 0, 'needs_update' => 0, 'failed' => 0], $counts);
+  }
+
+  /**
+   * Tests that a derived migration ID resolves to core's actual table name.
+   *
+   * Regression test: derived migrations carry a colon in their ID
+   * ("d7_node:article"). Naively concatenating "migrate_map_" with the raw
+   * ID produces "migrate_map_d7_node:article", a table that core never
+   * creates, so every query against it silently returned nothing. Core
+   * actually creates "migrate_map_d7_node__article" (colon replaced with a
+   * double underscore, lowercased) — see
+   * \Drupal\migrate\Plugin\migrate\id_map\Sql::__construct(). This test
+   * creates the fixture table under that real name and confirms the
+   * service still finds it when passed the raw, colon-bearing ID.
+   *
+   * @covers ::lookupDestinationIds
+   * @covers ::listImportedItems
+   * @covers ::countItemsByStatus
+   */
+  public function testDerivedMigrationIdResolvesToCoreTableName(): void {
+    $migrationId = 'd7_node:article';
+    $table = 'migrate_map_d7_node__article';
+
+    $this->createMapTableNamed($table);
+    $this->insertMapRowIntoTable($table, '100', 1, MigrateIdMapInterface::STATUS_IMPORTED);
+    $this->insertMapRowIntoTable($table, '101', 2, MigrateIdMapInterface::STATUS_FAILED);
+
+    $result = $this->mapQuery->lookupDestinationIds($migrationId, ['100']);
+    $this->assertEquals(['destid1' => '1'], $result);
+
+    $items = $this->mapQuery->listImportedItems($migrationId);
+    $this->assertCount(2, $items);
+
+    $counts = $this->mapQuery->countItemsByStatus($migrationId);
+    $this->assertEquals(1, $counts['imported']);
+    $this->assertEquals(1, $counts['failed']);
   }
 
 }

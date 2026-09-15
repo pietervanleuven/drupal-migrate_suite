@@ -1,4 +1,8 @@
+# Local agent/editor context, not part of the distributed module.
 .claude
+AGENTS.md
+
+# Bootstrapping scaffolding (removed; kept ignored so it never lands in a release).
 .chief
 docs
 PLAN.md

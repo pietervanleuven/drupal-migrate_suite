@@ -25,6 +25,17 @@ migrate_suite/
 - Core `migrate` module enabled
 - Optional: `migrate_tools` (its `administer migrations` permission is recognized as an admin bypass)
 
+### Migration compatibility
+
+Migrate Suite reads the `migrate_map_*` and `migrate_message_*` tables that core
+creates, so it works retroactively against content that was migrated before the
+module was installed — no re-run required.
+
+Derived migrations are supported. Migrations whose ID contains a colon
+(`d7_node:article`, and therefore effectively all of `migrate_drupal`), whose ID
+contains uppercase characters, or whose ID is long enough that core truncates
+the table name, all resolve correctly.
+
 ## Installation
 
 ```bash
@@ -103,6 +114,7 @@ Exposes migration run history to Views.
 | `/admin/structure/migrate-suite/{id}` | Migration detail | `view migrate suite dashboard` |
 | `/admin/structure/migrate-suite/{id}/messages` | Messages | `view migrate suite dashboard` |
 | `/admin/structure/migrate-suite/{id}/failed` | Failed items | `view migrate suite dashboard` |
+| `/admin/structure/migrate-suite/{id}/failed/reset` | Reset failed items for retry | `view migrate suite dashboard` |
 | `/admin/structure/migrate-suite/{id}/history` | Run history | `view migrate suite dashboard` |
 | `/admin/structure/migrate-suite/{id}/run` | Run confirm | `view migrate suite dashboard` |
 | `/admin/structure/migrate-suite/{id}/rollback` | Rollback confirm | `view migrate suite dashboard` |
@@ -114,3 +126,30 @@ Exposes migration run history to Views.
 | `/admin/structure/migrate-suite/settings` | Health settings | `administer site configuration` |
 | `/admin/structure/migrate-suite/settings/source-links` | Source links | `administer site configuration` |
 | `/admin/structure/migrate-suite/settings/schedules` | Schedules | `administer site configuration` |
+
+## Development
+
+Tests live under `tests/` in the parent module and `modules/*/tests/` in each
+submodule, following the standard Drupal layout.
+
+```bash
+# From your Drupal root, with the module in modules/contrib/migrate_suite
+vendor/bin/phpunit -c core --group migrate_suite
+```
+
+Unit and kernel tests cover the shared services, health analysis and run
+logging. Functional tests for the admin UI are not written yet.
+
+When adding code that touches a migration's map or message table, resolve the
+table name through the `migrate_suite.table_name_resolver` service. Do not
+concatenate `'migrate_map_' . $migration_id` — core applies transformations to
+that name, and skipping them silently returns empty results for derived
+migrations.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+GPL-2.0-or-later.
