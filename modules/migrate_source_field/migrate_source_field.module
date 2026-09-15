@@ -217,7 +217,7 @@ function _migrate_source_field_build_provenance_display(array $provenance): arra
  *   An HTML link string, or NULL if no URL pattern is configured.
  */
 function _migrate_source_field_build_source_link(string $migrationId, array $sourceIds): ?string {
-  $config = \Drupal::config('migrate_suite.settings');
+  $config = \Drupal::config('migrate_source_field.settings');
   $sourceLinks = $config->get('source_links') ?? [];
 
   if (empty($sourceLinks[$migrationId])) {

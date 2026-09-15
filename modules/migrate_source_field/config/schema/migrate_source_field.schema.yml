@@ -1,6 +1,6 @@
-migrate_suite.settings:
+migrate_source_field.settings:
   type: config_object
-  label: 'Migrate Suite settings'
+  label: 'Migrate Source Field settings'
   mapping:
     source_links:
       type: sequence

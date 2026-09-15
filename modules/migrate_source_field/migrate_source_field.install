@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for Migrate Source Field.
+ */
+
+/**
+ * Renames the 'migrate_suite.settings' config object to match the module.
+ */
+function migrate_source_field_update_10001(): void {
+  $configFactory = \Drupal::configFactory();
+  $oldConfig = $configFactory->getEditable('migrate_suite.settings');
+
+  if ($oldConfig->isNew()) {
+    return;
+  }
+
+  $data = $oldConfig->getRawData();
+
+  $configFactory->getEditable('migrate_source_field.settings')
+    ->setData($data)
+    ->save(TRUE);
+
+  $oldConfig->delete();
+}

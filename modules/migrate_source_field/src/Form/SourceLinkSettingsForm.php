@@ -34,7 +34,7 @@ class SourceLinkSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   protected function getEditableConfigNames(): array {
-    return ['migrate_suite.settings'];
+    return ['migrate_source_field.settings'];
   }
 
   /**
@@ -48,7 +48,7 @@ class SourceLinkSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    $config = $this->config('migrate_suite.settings');
+    $config = $this->config('migrate_source_field.settings');
     $sourceLinks = $config->get('source_links') ?? [];
 
     $migrations = $this->migrationPluginManager->createInstances([]);
@@ -67,6 +67,13 @@ class SourceLinkSettingsForm extends ConfigFormBase {
 
     ksort($groups);
 
+    // Migration IDs may contain '.' and ':' (derived migrations, e.g.
+    // 'd7_node:article'), which are not safe to use verbatim as form keys,
+    // and a naive character substitution is not reversible (it can collide).
+    // Instead, generate an opaque key per migration ID and keep the mapping
+    // in $form_state so submitForm() can resolve the real IDs exactly.
+    $migrationKeys = [];
+
     foreach ($groups as $group => $groupMigrations) {
       $form['group_' . $group] = [
         '#type' => 'details',
@@ -75,7 +82,8 @@ class SourceLinkSettingsForm extends ConfigFormBase {
       ];
 
       foreach ($groupMigrations as $migrationId => $migration) {
-        $safeKey = str_replace('.', '__', $migrationId);
+        $safeKey = 'm' . md5($migrationId);
+        $migrationKeys[$safeKey] = $migrationId;
         $form['group_' . $group]['source_link_' . $safeKey] = [
           '#type' => 'textfield',
           '#title' => $migration->label() ?: $migrationId,
@@ -85,6 +93,8 @@ class SourceLinkSettingsForm extends ConfigFormBase {
         ];
       }
     }
+
+    $form_state->set('migration_keys', $migrationKeys);
 
     if (empty($migrations)) {
       $form['empty'] = [
@@ -99,18 +109,17 @@ class SourceLinkSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $migrations = $this->migrationPluginManager->createInstances([]);
+    $migrationKeys = $form_state->get('migration_keys') ?? [];
     $sourceLinks = [];
 
-    foreach ($migrations as $migrationId => $migration) {
-      $safeKey = str_replace('.', '__', $migrationId);
+    foreach ($migrationKeys as $safeKey => $migrationId) {
       $value = trim((string) $form_state->getValue('source_link_' . $safeKey));
       if ($value !== '') {
         $sourceLinks[$migrationId] = $value;
       }
     }
 
-    $this->config('migrate_suite.settings')
+    $this->config('migrate_source_field.settings')
       ->set('source_links', $sourceLinks)
       ->save();
 
