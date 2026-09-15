@@ -128,7 +128,20 @@ class MigrationRunWorker extends QueueWorkerBase implements ContainerFactoryPlug
     }
 
     $executable = new MigrateExecutable($migration, new MigrateMessage());
-    $executable->import();
+
+    try {
+      $executable->import();
+    }
+    catch (\Throwable $e) {
+      // A migration that fails deterministically must not be retried by the
+      // queue: an uncaught exception here would make processItem() throw,
+      // which causes the queue to release the item and retry it on every
+      // subsequent cron run, forever. Log and let the item be consumed.
+      $this->loggerFactory->get('migrate_schedule')->error('Scheduled run of @migration failed: @error', [
+        '@migration' => $migrationId,
+        '@error' => $e->getMessage(),
+      ]);
+    }
   }
 
 }
