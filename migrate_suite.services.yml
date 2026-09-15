@@ -24,3 +24,6 @@ services:
   migrate_suite.stale_run_reaper:
     class: Drupal\migrate_suite\Service\StaleRunReaper
     arguments: ['@database', '@datetime.time', '@cache_tags.invalidator', '@migrate_suite.run_logger']
+
+  Drupal\migrate_suite\Hook\MigrateSuiteHooks:
+    arguments: ['@migrate_suite.stale_run_reaper']

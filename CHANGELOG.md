@@ -209,6 +209,12 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
 
 ### Changed
 
+- Drupal 12 compatibility
+  ([#3600350](https://www.drupal.org/project/migrate_suite/issues/3600350)):
+  `core_version_requirement` allows `^12`, and every procedural hook moved
+  to an object-oriented `#[Hook]` class (`MigrateSuiteHooks`,
+  `MigrateScheduleHooks`, `MigrateSourceFieldHooks`), with the `.module`
+  functions kept as `#[LegacyHook]` delegates so Drupal 10.4 keeps working.
 - The migration dashboard is paginated (50 per page) and no longer shows a
   "Source count" column; that figure moved to the migration detail page.
   Counting a migration's source can mean an arbitrary query against a remote

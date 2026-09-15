@@ -9,92 +9,34 @@ declare(strict_types=1);
 
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityFormInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Hook\Attribute\LegacyHook;
 use Drupal\Core\Url;
+use Drupal\migrate_source_field\Hook\MigrateSourceFieldHooks;
 use Drupal\node\NodeInterface;
-use Drupal\node\NodeTypeInterface;
 
 /**
  * Implements hook_entity_extra_field_info().
  */
+#[LegacyHook]
 function migrate_source_field_entity_extra_field_info(): array {
-  $extra = [];
-
-  $nodeTypes = \Drupal::entityTypeManager()
-    ->getStorage('node_type')
-    ->loadMultiple();
-
-  foreach ($nodeTypes as $nodeType) {
-    assert($nodeType instanceof NodeTypeInterface);
-    $extra['node'][$nodeType->id()]['display']['migrate_provenance'] = [
-      'label' => t('Migration provenance'),
-      'description' => t('Shows migration source information for imported content.'),
-      'weight' => 100,
-      'visible' => FALSE,
-    ];
-    $extra['node'][$nodeType->id()]['form']['migrate_provenance'] = [
-      'label' => t('Migration provenance'),
-      'description' => t('Shows migration source information for imported content.'),
-      'weight' => 100,
-      'visible' => FALSE,
-    ];
-  }
-
-  return $extra;
+  return \Drupal::service(MigrateSourceFieldHooks::class)->entityExtraFieldInfo();
 }
 
 /**
  * Implements hook_ENTITY_TYPE_view() for node entities.
  */
+#[LegacyHook]
 function migrate_source_field_node_view(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display, string $view_mode): void {
-  if (!$display->getComponent('migrate_provenance')) {
-    return;
-  }
-
-  $provenance = _migrate_source_field_get_provenance($entity);
-  if ($provenance === NULL) {
-    return;
-  }
-
-  $build['migrate_provenance'] = _migrate_source_field_build_provenance_display($provenance);
-  $build['migrate_provenance']['#cache'] = [
-    'tags' => ['migrate_source_field:provenance'],
-  ];
+  \Drupal::service(MigrateSourceFieldHooks::class)->nodeView($build, $entity, $display, $view_mode);
 }
 
 /**
  * Implements hook_form_BASE_FORM_ID_alter() for node forms.
  */
+#[LegacyHook]
 function migrate_source_field_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
-  $formObject = $form_state->getFormObject();
-  if (!$formObject instanceof EntityFormInterface) {
-    return;
-  }
-
-  /** @var \Drupal\node\NodeInterface $node */
-  $node = $formObject->getEntity();
-
-  if ($node->isNew()) {
-    return;
-  }
-
-  // Check if the pseudo-field is enabled on the form display.
-  $formDisplay = \Drupal::entityTypeManager()
-    ->getStorage('entity_form_display')
-    ->load('node.' . $node->bundle() . '.default');
-
-  if (!$formDisplay || !$formDisplay->getComponent('migrate_provenance')) {
-    return;
-  }
-
-  $provenance = _migrate_source_field_get_provenance($node);
-  if ($provenance === NULL) {
-    return;
-  }
-
-  $form['migrate_provenance'] = _migrate_source_field_build_provenance_display($provenance);
-  $form['migrate_provenance']['#weight'] = 100;
+  \Drupal::service(MigrateSourceFieldHooks::class)->formNodeFormAlter($form, $form_state);
 }
 
 /**

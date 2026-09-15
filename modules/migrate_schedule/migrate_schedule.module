@@ -7,20 +7,13 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\Hook\Attribute\LegacyHook;
+use Drupal\migrate_schedule\Hook\MigrateScheduleHooks;
+
 /**
  * Implements hook_cron().
  */
+#[LegacyHook]
 function migrate_schedule_cron(): void {
-  /** @var \Drupal\migrate_schedule\Service\ScheduleManager $scheduleManager */
-  $scheduleManager = \Drupal::service('migrate_schedule.manager');
-  $queue = \Drupal::queue('migrate_schedule_run');
-
-  foreach ($scheduleManager->getSchedules() as $migrationId => $schedule) {
-    if ($scheduleManager->isDue($migrationId)) {
-      $queue->createItem([
-        'migration_id' => $migrationId,
-        'skip_if_no_changes' => $schedule['skip_if_no_changes'] ?? FALSE,
-      ]);
-    }
-  }
+  \Drupal::service(MigrateScheduleHooks::class)->cron();
 }

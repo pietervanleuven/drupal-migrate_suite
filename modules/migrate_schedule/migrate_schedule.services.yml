@@ -2,3 +2,6 @@ services:
   migrate_schedule.manager:
     class: Drupal\migrate_schedule\Service\ScheduleManager
     arguments: ['@config.factory', '@database', '@datetime.time']
+
+  Drupal\migrate_schedule\Hook\MigrateScheduleHooks:
+    arguments: ['@migrate_schedule.manager', '@queue']

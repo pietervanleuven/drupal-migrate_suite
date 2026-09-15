@@ -15,7 +15,7 @@
         "source": "https://git.drupalcode.org/project/migrate_suite"
     },
     "require": {
-        "drupal/core": "^10.4 || ^11"
+        "drupal/core": "^10.4 || ^11 || ^12"
     },
     "require-dev": {
         "drupal/coder": "^8.3",

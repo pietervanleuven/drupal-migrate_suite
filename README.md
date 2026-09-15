@@ -1,6 +1,6 @@
 # Migrate Suite
 
-A Drupal 10.4+ / 11.x module that provides an administration dashboard for managing and monitoring migrations. It fills a major gap in the Drupal migration ecosystem: once migrations are configured, there is no editor-friendly way to monitor their status, inspect migrated content, or control access per migration.
+A Drupal 10.4+ / 11.x / 12.x module that provides an administration dashboard for managing and monitoring migrations. It fills a major gap in the Drupal migration ecosystem: once migrations are configured, there is no editor-friendly way to monitor their status, inspect migrated content, or control access per migration.
 
 The core Migrate module and Migrate Tools provide Drush commands and a minimal admin page, but site managers, content leads, and non-developer admins are left without visibility. Migrate Suite changes that.
 
@@ -21,7 +21,7 @@ migrate_suite/
 
 ## Requirements
 
-- Drupal `^10.4 || ^11`
+- Drupal `^10.4 || ^11 || ^12`
 - Core `migrate` module enabled
 - Optional: `migrate_tools` (its `administer migrations` permission is recognized as an admin bypass)
 

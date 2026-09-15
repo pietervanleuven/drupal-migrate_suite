@@ -5,9 +5,13 @@
  * Primary module hooks for Migrate Suite.
  */
 
+use Drupal\Core\Hook\Attribute\LegacyHook;
+use Drupal\migrate_suite\Hook\MigrateSuiteHooks;
+
 /**
  * Implements hook_cron().
  */
+#[LegacyHook]
 function migrate_suite_cron(): void {
-  \Drupal::service('migrate_suite.stale_run_reaper')->reapStaleRuns();
+  \Drupal::service(MigrateSuiteHooks::class)->cron();
 }
