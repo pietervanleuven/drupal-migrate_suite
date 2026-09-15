@@ -50,10 +50,10 @@ class RerunByErrorForm extends ConfirmFormBase {
    *   The migration table name resolver service.
    */
   public function __construct(
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly Connection $database,
-    protected readonly MigrateMessageQuery $messageQuery,
-    protected readonly MigrateTableNameResolver $tableNameResolver,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected Connection $database,
+    protected MigrateMessageQuery $messageQuery,
+    protected MigrateTableNameResolver $tableNameResolver,
   ) {}
 
   /**

@@ -57,12 +57,12 @@ class MigrationRollbackConfirmForm extends ConfirmFormBase {
    *   The access check, or NULL if migrate_permissions is not installed.
    */
   public function __construct(
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly Connection $database,
-    protected readonly AccountInterface $currentUser,
-    protected readonly MigrateMapQuery $mapQuery,
-    protected readonly MigrateTableNameResolver $tableNameResolver,
-    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected Connection $database,
+    protected AccountInterface $currentUser,
+    protected MigrateMapQuery $mapQuery,
+    protected MigrateTableNameResolver $tableNameResolver,
+    protected ?MigrateAccessCheck $migrateAccessCheck,
   ) {}
 
   /**

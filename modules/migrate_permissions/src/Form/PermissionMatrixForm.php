@@ -26,8 +26,8 @@ class PermissionMatrixForm extends FormBase {
    *   The entity type manager.
    */
   public function __construct(
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly EntityTypeManagerInterface $entityTypeManager,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   /**

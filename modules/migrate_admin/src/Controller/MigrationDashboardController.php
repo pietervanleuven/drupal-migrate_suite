@@ -49,12 +49,14 @@ class MigrationDashboardController extends ControllerBase {
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
     protected readonly Connection $database,
     protected readonly DateFormatterInterface $dateFormatter,
-    protected readonly ModuleHandlerInterface $moduleHandler,
+    ModuleHandlerInterface $moduleHandler,
     protected readonly MigrateTableNameResolver $tableNameResolver,
     protected readonly ?MigrateAccessCheck $migrateAccessCheck,
     protected readonly ?MigrationHealthAnalyzer $healthAnalyzer,
     protected readonly ?ScheduleManager $scheduleManager,
-  ) {}
+  ) {
+    $this->moduleHandler = $moduleHandler;
+  }
 
   /**
    * {@inheritdoc}

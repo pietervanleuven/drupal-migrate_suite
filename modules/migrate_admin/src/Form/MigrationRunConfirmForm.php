@@ -57,12 +57,12 @@ class MigrationRunConfirmForm extends ConfirmFormBase {
    *   The delta detection service, or NULL if it is unavailable.
    */
   public function __construct(
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly Connection $database,
-    protected readonly AccountInterface $currentUser,
-    protected readonly MigrateTableNameResolver $tableNameResolver,
-    protected readonly ?MigrateAccessCheck $migrateAccessCheck,
-    protected readonly ?DeltaDetectionService $deltaDetection,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected Connection $database,
+    protected AccountInterface $currentUser,
+    protected MigrateTableNameResolver $tableNameResolver,
+    protected ?MigrateAccessCheck $migrateAccessCheck,
+    protected ?DeltaDetectionService $deltaDetection,
   ) {}
 
   /**

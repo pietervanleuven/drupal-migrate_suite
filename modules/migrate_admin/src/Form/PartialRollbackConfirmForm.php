@@ -7,6 +7,7 @@ namespace Drupal\migrate_admin\Form;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
@@ -29,10 +30,23 @@ class PartialRollbackConfirmForm extends ConfirmFormBase {
    */
   protected array $sourceIdSets = [];
 
+  /**
+   * Constructs a PartialRollbackConfirmForm object.
+   *
+   * @param \Drupal\migrate_suite\Service\MigrateMapQuery $mapQuery
+   *   The migrate map query service.
+   * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
+   *   The migration plugin manager.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
+   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $tempStoreFactory
+   *   The private tempstore factory.
+   */
   public function __construct(
-    protected readonly MigrateMapQuery $mapQuery,
-    protected readonly MigrationPluginManagerInterface $migrationPluginManager,
-    protected readonly EntityTypeManagerInterface $entityTypeManager,
+    protected MigrateMapQuery $mapQuery,
+    protected MigrationPluginManagerInterface $migrationPluginManager,
+    protected EntityTypeManagerInterface $entityTypeManager,
+    protected PrivateTempStoreFactory $tempStoreFactory,
   ) {}
 
   /**
@@ -43,6 +57,7 @@ class PartialRollbackConfirmForm extends ConfirmFormBase {
       $container->get('migrate_suite.map_query'),
       $container->get('plugin.manager.migration'),
       $container->get('entity_type.manager'),
+      $container->get('tempstore.private'),
     );
   }
 
@@ -81,7 +96,7 @@ class PartialRollbackConfirmForm extends ConfirmFormBase {
 
     $this->migrationId = $migration_id;
 
-    $tempstore = \Drupal::service('tempstore.private')->get('migrate_admin');
+    $tempstore = $this->tempStoreFactory->get('migrate_admin');
     $this->sourceIdSets = $tempstore->get('partial_rollback_' . $migration_id) ?? [];
 
     if (empty($this->sourceIdSets)) {
@@ -143,7 +158,7 @@ class PartialRollbackConfirmForm extends ConfirmFormBase {
     $deletedRows = $this->mapQuery->deleteMapRows($migrationId, $this->sourceIdSets);
 
     // Clear tempstore.
-    $tempstore = \Drupal::service('tempstore.private')->get('migrate_admin');
+    $tempstore = $this->tempStoreFactory->get('migrate_admin');
     $tempstore->delete('partial_rollback_' . $migrationId);
 
     $this->messenger()->addStatus($this->t('Partially rolled back @entities entities and @rows map entries.', [

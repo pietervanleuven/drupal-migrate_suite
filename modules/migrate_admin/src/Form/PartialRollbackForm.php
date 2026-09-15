@@ -31,8 +31,8 @@ class PartialRollbackForm extends FormBase {
    *   The private tempstore factory.
    */
   public function __construct(
-    protected readonly MigrateMapQuery $mapQuery,
-    protected readonly PrivateTempStoreFactory $tempStoreFactory,
+    protected MigrateMapQuery $mapQuery,
+    protected PrivateTempStoreFactory $tempStoreFactory,
   ) {}
 
   /**

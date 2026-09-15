@@ -25,6 +25,16 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   comparisons now use the core constants, and the row status label gained the
   missing "Ignored" entry.
 
+- **Admin forms held readonly promoted properties.** `FormBase` uses
+  `DependencySerializationTrait`, whose `__wakeup()` cannot reinitialize a
+  readonly property declared in a subclass on PHP below 8.4. Every form in the
+  suite declared its injected services that way, so restoring a cached form
+  would fail. The `readonly` modifier is gone from all 28 of them.
+
+- **`migrate_source_field_form_node_form_alter()` assumed an entity form.**
+  `FormStateInterface::getFormObject()` returns a `FormInterface`, which has no
+  `getEntity()`; the hook now checks for `EntityFormInterface` first.
+
 - **Delta detection could abort an import.** `DeltaDetectionService` caught
   `\Exception`, so a PHP `Error` raised by a source plugin escaped the
   `PRE_IMPORT` subscriber and took the migration run down with it. It now
@@ -79,6 +89,10 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   calling `\Drupal::` and `Role::load()` statically; `MigrationDetailController`
   uses `$this->entityTypeManager()`; and dead local variables are gone. No
   behaviour changes.
+- `PartialRollbackConfirmForm` injects the private tempstore and
+  `MigrationIdFilter` injects the migration plugin manager, instead of calling
+  `\Drupal::service()`. `MigrationDashboardController` stops re-declaring
+  `ControllerBase::$moduleHandler` as a promoted property.
 - `MigrateMapQuery` and `MigrateMessageQuery` take the resolver as a
   constructor argument, as do `MigrationHealthAnalyzer`, `ProvenanceLookup`,
   `MigrationRunWorker`, and the `migrate_admin` controllers and forms.
