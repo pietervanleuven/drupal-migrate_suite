@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\migrate_permissions\Form;
 
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\migrate\Plugin\MigrationPluginManagerInterface;
 use Drupal\user\RoleInterface;
-use Drupal\user\Entity\Role;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,9 +22,12 @@ class PermissionMatrixForm extends FormBase {
    *
    * @param \Drupal\migrate\Plugin\MigrationPluginManagerInterface $migrationPluginManager
    *   The migration plugin manager.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
    */
   public function __construct(
     protected readonly MigrationPluginManagerInterface $migrationPluginManager,
+    protected readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   /**
@@ -33,6 +36,7 @@ class PermissionMatrixForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('plugin.manager.migration'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -129,7 +133,7 @@ class PermissionMatrixForm extends FormBase {
     ];
 
     // Load roles (exclude anonymous).
-    $roles = Role::loadMultiple();
+    $roles = $this->entityTypeManager->getStorage('user_role')->loadMultiple();
     unset($roles[RoleInterface::ANONYMOUS_ID]);
     /** @var \Drupal\user\RoleInterface[] $roles */
 
@@ -292,7 +296,7 @@ class PermissionMatrixForm extends FormBase {
     $permissionTypes = ['view', 'run', 'rollback'];
 
     foreach ($roleIds as $roleId) {
-      $role = Role::load($roleId);
+      $role = $this->entityTypeManager->getStorage('user_role')->load($roleId);
       if ($role === NULL || $role->isAdmin()) {
         continue;
       }

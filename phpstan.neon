@@ -1,0 +1,8 @@
+parameters:
+  level: 2
+  paths:
+    - .
+  excludePaths:
+    - vendor
+  drupal:
+    drupal_root: ../../../

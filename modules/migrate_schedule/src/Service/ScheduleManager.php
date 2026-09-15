@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\migrate_schedule\Service;
 
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
 
@@ -21,9 +22,20 @@ class ScheduleManager {
     'weekly' => 604800,
   ];
 
+  /**
+   * Constructs a ScheduleManager object.
+   *
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The configuration factory.
+   * @param \Drupal\Core\Database\Connection $database
+   *   The database connection.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
+   */
   public function __construct(
     protected readonly ConfigFactoryInterface $configFactory,
     protected readonly Connection $database,
+    protected readonly TimeInterface $time,
   ) {}
 
   /**
@@ -135,7 +147,7 @@ class ScheduleManager {
       return TRUE;
     }
 
-    return (\Drupal::time()->getRequestTime() - (int) $lastRun) >= $intervalSeconds;
+    return ($this->time->getRequestTime() - (int) $lastRun) >= $intervalSeconds;
   }
 
 }

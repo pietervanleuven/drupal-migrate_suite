@@ -174,7 +174,14 @@ function _migrate_source_field_build_provenance_display(array $provenance): arra
       $messagesUrl = Url::fromRoute('migrate_admin.migration_messages', [
         'migration_id' => $provenance['migration_id'],
       ]);
-      $rows[] = [t('Messages'), ['data' => ['#markup' => '<a href="' . $messagesUrl->toString() . '">' . t('View migration messages') . '</a>']]];
+      $rows[] = [
+        t('Messages'),
+        [
+          'data' => [
+            '#markup' => '<a href="' . $messagesUrl->toString() . '">' . t('View migration messages') . '</a>',
+          ],
+        ],
+      ];
     }
     catch (\Exception $e) {
       // Route may not exist.

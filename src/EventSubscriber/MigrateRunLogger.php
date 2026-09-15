@@ -43,6 +43,10 @@ class MigrateRunLogger implements EventSubscriberInterface {
    *   The database connection.
    * @param \Drupal\Component\Datetime\TimeInterface $time
    *   The time service.
+   * @param \Drupal\Core\Cache\CacheTagsInvalidatorInterface $cacheTagsInvalidator
+   *   The cache tags invalidator.
+   * @param \Drupal\migrate_suite\Service\DeltaDetectionService|null $deltaDetection
+   *   The delta detection service, or NULL if it is unavailable.
    */
   public function __construct(
     protected readonly Connection $database,

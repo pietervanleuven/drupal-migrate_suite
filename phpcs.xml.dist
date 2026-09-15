@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="migrate_suite">
+  <description>PHP CodeSniffer configuration for the Migrate Suite module.</description>
+
+  <arg name="extensions" value="php,module,inc,install,test,profile,theme,yml"/>
+  <arg name="colors"/>
+  <arg value="sp"/>
+
+  <file>.</file>
+
+  <exclude-pattern>vendor/</exclude-pattern>
+  <exclude-pattern>node_modules/</exclude-pattern>
+
+  <rule ref="Drupal"/>
+  <rule ref="DrupalPractice"/>
+</ruleset>

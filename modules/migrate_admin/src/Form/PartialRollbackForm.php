@@ -6,6 +6,7 @@ namespace Drupal\migrate_admin\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\TempStore\PrivateTempStoreFactory;
 use Drupal\Core\Url;
 use Drupal\migrate_suite\Service\MigrateMapQuery;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -21,8 +22,17 @@ class PartialRollbackForm extends FormBase {
    */
   protected string $migrationId;
 
+  /**
+   * Constructs a PartialRollbackForm object.
+   *
+   * @param \Drupal\migrate_suite\Service\MigrateMapQuery $mapQuery
+   *   The migrate map query service.
+   * @param \Drupal\Core\TempStore\PrivateTempStoreFactory $tempStoreFactory
+   *   The private tempstore factory.
+   */
   public function __construct(
     protected readonly MigrateMapQuery $mapQuery,
+    protected readonly PrivateTempStoreFactory $tempStoreFactory,
   ) {}
 
   /**
@@ -31,6 +41,7 @@ class PartialRollbackForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('migrate_suite.map_query'),
+      $container->get('tempstore.private'),
     );
   }
 
@@ -126,7 +137,7 @@ class PartialRollbackForm extends FormBase {
     }
 
     // Store in tempstore for the confirm form.
-    $tempstore = \Drupal::service('tempstore.private')->get('migrate_admin');
+    $tempstore = $this->tempStoreFactory->get('migrate_admin');
     $sourceIdSets = [];
     foreach ($selected as $key) {
       $sourceIdSets[] = explode('|', $key);

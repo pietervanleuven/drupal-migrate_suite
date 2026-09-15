@@ -38,6 +38,10 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
   canonical way to derive a migration's map and message table names. Any new
   code that needs one of those tables must go through this service rather than
   building the name itself.
+- Linting configuration: `phpcs.xml.dist` (Drupal + DrupalPractice),
+  `phpstan.neon` (level 2) and `.gitlab-ci.yml`, which inherits drupal.org's
+  shared pipeline and runs PHPUnit, PHPCS and PHPStan against both supported
+  core majors. `composer lint` / `composer lint:fix` run PHPCS locally.
 - Unit coverage for the resolver (plain, single-colon, multi-colon, mixed-case
   and over-length IDs, with and without a database table prefix), plus
   derived-ID regression tests for `MigrateMapQuery` and
@@ -45,6 +49,13 @@ Nothing has been released yet. `1.0.0` will be the initial release — see
 
 ### Changed
 
+- The whole tree now passes `Drupal` and `DrupalPractice` coding standards with
+  zero errors and zero warnings. Constructor docblocks document every promoted
+  parameter; `PartialRollbackForm`, `ScheduleManager` and `PermissionMatrixForm`
+  inject the private tempstore, time and entity type manager services instead of
+  calling `\Drupal::` and `Role::load()` statically; `MigrationDetailController`
+  uses `$this->entityTypeManager()`; and dead local variables are gone. No
+  behaviour changes.
 - `MigrateMapQuery` and `MigrateMessageQuery` take the resolver as a
   constructor argument, as do `MigrationHealthAnalyzer`, `ProvenanceLookup`,
   `MigrationRunWorker`, and the `migrate_admin` controllers and forms.

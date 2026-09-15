@@ -1,0 +1,27 @@
+# GitLab CI for drupal.org's GitLab instance (git.drupalcode.org).
+#
+# Inherits drupal.org's shared pipeline, which builds the module against a
+# real Drupal site and runs PHPUnit, PHPCS, PHPStan and friends. The upstream
+# template is the source of truth for job definitions; everything below only
+# overrides what this project needs differently.
+#
+# See https://project.pages.drupalcode.org/gitlab_templates/ for the jobs this
+# provides and the variables they accept.
+include:
+  - project: $_GITLAB_TEMPLATES_REPO
+    ref: $_GITLAB_TEMPLATES_REF
+    file:
+      - '/includes/include.drupalci.main.yml'
+      - '/includes/include.drupalci.variables.yml'
+      - '/includes/include.drupalci.workflows.yml'
+
+variables:
+  # The module supports ^10.4 || ^11; test against both rather than only the
+  # default major.
+  OPT_IN_TEST_PREVIOUS_MAJOR: 1
+  OPT_IN_TEST_NEXT_MAJOR: 1
+
+# PHPStan runs against the bundled phpstan.neon; keep it advisory until the
+# baseline is clean rather than blocking merges on it.
+phpstan:
+  allow_failure: true

@@ -42,7 +42,7 @@ class MessageExportController extends ControllerBase {
   public function exportCsv(string $migration_id, Request $request): StreamedResponse {
     $severityFilter = $request->query->get('severity', '');
     $severityMap = ['notice' => 6, 'warning' => 4, 'error' => 3];
-    $severity = isset($severityMap[$severityFilter]) ? $severityMap[$severityFilter] : NULL;
+    $severity = $severityMap[$severityFilter] ?? NULL;
 
     $levelLabels = [3 => 'Error', 4 => 'Warning', 6 => 'Notice'];
 

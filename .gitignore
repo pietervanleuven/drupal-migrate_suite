@@ -7,3 +7,7 @@ AGENTS.md
 docs
 PLAN.md
 progress.md
+
+# Local dev tooling.
+/vendor/
+composer.lock

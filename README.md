@@ -140,6 +140,33 @@ vendor/bin/phpunit -c core --group migrate_suite
 Unit and kernel tests cover the shared services, health analysis and run
 logging. Functional tests for the admin UI are not written yet.
 
+### Coding standards
+
+The module is checked against the `Drupal` and `DrupalPractice` sniffs
+(`phpcs.xml.dist`) and PHPStan level 2 (`phpstan.neon`). Both run on every push
+through `.gitlab-ci.yml`, which inherits drupal.org's shared pipeline.
+
+PHPCS needs no Drupal codebase, so it can run straight from the module
+directory:
+
+```bash
+composer global require drupal/coder
+export PATH="$PATH:$HOME/.composer/vendor/bin"
+
+phpcs          # or: composer lint
+phpcbf         # or: composer lint:fix
+```
+
+PHPStan resolves Drupal classes against the surrounding site, so run it from a
+Drupal root with the module installed under `modules/contrib/migrate_suite`:
+
+```bash
+vendor/bin/phpstan analyse modules/contrib/migrate_suite
+```
+
+The tree is currently free of PHPCS errors and warnings; keep it that way
+rather than adding exclusions.
+
 When adding code that touches a migration's map or message table, resolve the
 table name through the `migrate_suite.table_name_resolver` service. Do not
 concatenate `'migrate_map_' . $migration_id` — core applies transformations to

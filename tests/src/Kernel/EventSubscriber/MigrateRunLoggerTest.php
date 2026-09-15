@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\migrate_suite\Kernel\EventSubscriber;
 
+use Drupal\Core\Database\Connection;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\migrate\Event\MigrateEvents;
 use Drupal\migrate\Event\MigrateImportEvent;
 use Drupal\migrate\Event\MigratePostRowSaveEvent;
 use Drupal\migrate\Event\MigratePreRowSaveEvent;
+use Drupal\migrate\MigrateMessageInterface;
 use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Row;
@@ -33,7 +35,7 @@ class MigrateRunLoggerTest extends KernelTestBase {
   /**
    * The database connection.
    */
-  protected $database;
+  protected Connection $database;
 
   /**
    * {@inheritdoc}
@@ -126,8 +128,8 @@ class MigrateRunLoggerTest extends KernelTestBase {
       ]);
       $row->method('getDestination')->willReturn([]);
 
-      $preRowEvent = new MigratePreRowSaveEvent($migration, $this->createMock(\Drupal\migrate\MigrateMessageInterface::class), $row);
-      $postRowEvent = new MigratePostRowSaveEvent($migration, $this->createMock(\Drupal\migrate\MigrateMessageInterface::class), $row, [$i + 1]);
+      $preRowEvent = new MigratePreRowSaveEvent($migration, $this->createMock(MigrateMessageInterface::class), $row);
+      $postRowEvent = new MigratePostRowSaveEvent($migration, $this->createMock(MigrateMessageInterface::class), $row, [$i + 1]);
 
       $this->runLogger->onPreRowSave($preRowEvent);
       $this->runLogger->onPostRowSave($postRowEvent);
@@ -163,8 +165,8 @@ class MigrateRunLoggerTest extends KernelTestBase {
       'source_row_status' => MigrateIdMapInterface::STATUS_FAILED,
     ]);
 
-    $preRowEvent = new MigratePreRowSaveEvent($migration, $this->createMock(\Drupal\migrate\MigrateMessageInterface::class), $row);
-    $postRowEvent = new MigratePostRowSaveEvent($migration, $this->createMock(\Drupal\migrate\MigrateMessageInterface::class), $row, []);
+    $preRowEvent = new MigratePreRowSaveEvent($migration, $this->createMock(MigrateMessageInterface::class), $row);
+    $postRowEvent = new MigratePostRowSaveEvent($migration, $this->createMock(MigrateMessageInterface::class), $row, []);
 
     $this->runLogger->onPreRowSave($preRowEvent);
     $this->runLogger->onPostRowSave($postRowEvent);

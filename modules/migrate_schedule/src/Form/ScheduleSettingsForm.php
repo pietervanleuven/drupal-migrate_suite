@@ -14,6 +14,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class ScheduleSettingsForm extends ConfigFormBase {
 
+  /**
+   * The migration plugin manager.
+   */
   protected MigrationPluginManagerInterface $migrationPluginManager;
 
   /**
