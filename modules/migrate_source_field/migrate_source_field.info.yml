@@ -5,3 +5,4 @@ package: Migrate Suite
 core_version_requirement: ^10.4 || ^11
 dependencies:
   - migrate_suite:migrate_suite
+configure: migrate_source_field.source_links
